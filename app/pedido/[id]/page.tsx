@@ -175,10 +175,14 @@ export default function PedidoDetallePage() {
               <div className="display" style={{ fontSize: 18, fontWeight: 400, marginBottom: 4 }}>{pedido.cliente?.CIUDAD || '—'}</div>
               <div style={{ fontSize: 14, color: 'var(--text-soft)' }}>{pedido.cliente?.DIRECCION || '—'}</div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
               <div>
                 <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 6 }}>TELÉFONO</div>
                 <a href={`tel:${pedido.cliente?.TELEFONO?.replace(/\s/g, '') || ''}`} className="mono" style={{ fontSize: 14, color: 'var(--text)', textDecoration: 'none' }}>{pedido.cliente?.TELEFONO || '—'}</a>
+              </div>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 6 }}>CÉDULA / RUC</div>
+                <div className="mono" style={{ fontSize: 14 }}>{pedido.cliente?.CEDULA_RUC || '—'}</div>
               </div>
               <div>
                 <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 6 }}>TIPO DE ENVÍO</div>
@@ -187,8 +191,8 @@ export default function PedidoDetallePage() {
                     ? 'Delivery local' 
                     : 'Servientrega / Cooperativa'}
                 </div>
-             </div>
-            </div>
+              </div>
+          </div>
             {pedido.NOTAS_REGALOS && (
               <div style={{ marginTop: 20, padding: 14, background: 'var(--bg)', borderRadius: 4, borderLeft: '2px solid var(--gold)' }}>
                 <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 4 }}>NOTAS</div>
