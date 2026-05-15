@@ -181,9 +181,13 @@ export default function PedidoDetallePage() {
                 <a href={`tel:${pedido.cliente?.TELEFONO?.replace(/\s/g, '') || ''}`} className="mono" style={{ fontSize: 14, color: 'var(--text)', textDecoration: 'none' }}>{pedido.cliente?.TELEFONO || '—'}</a>
               </div>
               <div>
-                <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 6 }}>COURIER</div>
-                <div style={{ fontSize: 14 }}>{pedido.M_DE_ENVIO || '—'}</div>
-              </div>
+                <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 6 }}>TIPO DE ENVÍO</div>
+                <div style={{ fontSize: 14 }}>
+                  {pedido.cliente?.CIUDAD?.toUpperCase().includes('GUAYAQUIL') 
+                    ? 'Delivery local' 
+                    : 'Servientrega / Cooperativa'}
+                </div>
+             </div>
             </div>
             {pedido.NOTAS_REGALOS && (
               <div style={{ marginTop: 20, padding: 14, background: 'var(--bg)', borderRadius: 4, borderLeft: '2px solid var(--gold)' }}>
