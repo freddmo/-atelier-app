@@ -1,18 +1,15 @@
-// lib/api.ts — Cliente para comunicarse con tu Apps Script
+// lib/api.ts — Cliente API con facturas FIGS + courier
 
 import { Pedido, Usuario, Estado } from './types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 if (!API_URL) {
-  console.warn('⚠️ NEXT_PUBLIC_API_URL no está configurada en .env.local');
+  console.warn('⚠️ NEXT_PUBLIC_API_URL no está configurada');
 }
 
-// ============ GET helpers ============
-
-async function apiGet<T>(action: string, params: Record<string, string> = {}): Promise<T> {
+async function apiCall<T>(params: Record<string, string>): Promise<T> {
   const url = new URL(API_URL);
-  url.searchParams.set('action', action);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
 
   const res = await fetch(url.toString(), {
@@ -26,45 +23,132 @@ async function apiGet<T>(action: string, params: Record<string, string> = {}): P
   return json.data as T;
 }
 
-async function apiPost<T>(body: Record<string, unknown>): Promise<T> {
-  const res = await fetch(API_URL, {
-    method: 'POST',
-    // Apps Script no acepta CORS headers personalizados, así que mandamos text/plain
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(body),
-    cache: 'no-store',
-  });
+export type NuevoPago = {
+  ordenId: string;
+  cantidad: number;
+  fecha: string;
+  metodo: string;
+  estatus: string;
+};
 
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const json = await res.json();
-  if (!json.ok) throw new Error(json.error || 'Error desconocido');
-  return json.data as T;
-}
+export type ItemPendiente = {
+  ORDEN_ID: string;
+  NOMBRE: string;
+  ESTATUS_ENVIO: string;
+  PRODUCTO: string;
+  TIPO_PRENDA: string;
+  TALLA: string;
+  COLOR: string;
+  CANTIDAD: number;
+  PRECIO_VENTA: number;
+  itemIndex: number;
+};
 
-// ============ Endpoints ============
+export type PedidoPendienteCourier = {
+  ORDEN_ID: string;
+  NOMBRE: string;
+  ESTATUS_ENVIO: string;
+  F_ORDEN: string;
+  cantidadItems: number;
+  totalVenta: number;
+};
+
+export type ItemFactura = {
+  ORDEN_ID: string;
+  itemIndex: number;
+  precioFIGS: number;
+};
+
+export type CargarFacturaParams = {
+  items: ItemFactura[];
+  subtotal: number;
+  iva: number;
+  descuento: number;
+  numFactura: string;
+  fecha: string;
+};
+
+export type CargarCourierParams = {
+  pedidos: { ORDEN_ID: string; totalVenta: number }[];
+  costoCourier: number;
+  fecha: string;
+};
 
 export const api = {
   async ping() {
-    return apiGet<{ message: string }>('ping');
+    return apiCall<{ message: string }>({ action: 'ping' });
   },
 
   async getPedidos(): Promise<Pedido[]> {
-    return apiGet<Pedido[]>('getPedidos');
+    return apiCall<Pedido[]>({ action: 'getPedidos' });
   },
 
   async getPedido(id: string): Promise<Pedido> {
-    return apiGet<Pedido>('getPedido', { id });
+    return apiCall<Pedido>({ action: 'getPedido', id });
   },
 
   async login(usuario: string, password: string): Promise<Usuario> {
-    return apiPost<Usuario>({ action: 'login', usuario, password });
+    return apiCall<Usuario>({ action: 'login', usuario, password });
   },
 
   async cambiarEstado(ordenId: string, nuevoEstado: Estado, usuario: string) {
-    return apiPost({
+    return apiCall({
       action: 'cambiarEstado',
       ordenId,
       nuevoEstado,
+      usuario,
+    });
+  },
+
+  async agregarPago(pago: NuevoPago, usuario: string) {
+    return apiCall({
+      action: 'agregarPago',
+      ordenId: pago.ordenId,
+      cantidad: String(pago.cantidad),
+      fecha: pago.fecha,
+      metodo: pago.metodo,
+      estatus: pago.estatus,
+      usuario,
+    });
+  },
+
+  async borrarPago(ordenId: string, fecha: string, cantidad: number, usuario: string) {
+    return apiCall({
+      action: 'borrarPago',
+      ordenId,
+      fecha,
+      cantidad: String(cantidad),
+      usuario,
+    });
+  },
+
+  async getItemsPendientesCostos(): Promise<ItemPendiente[]> {
+    return apiCall<ItemPendiente[]>({ action: 'getItemsPendientesCostos' });
+  },
+
+  async getPedidosPendientesCourier(): Promise<PedidoPendienteCourier[]> {
+    return apiCall<PedidoPendienteCourier[]>({ action: 'getPedidosPendientesCourier' });
+  },
+
+  async cargarFacturaFIGS(params: CargarFacturaParams, usuario: string) {
+    return apiCall({
+      action: 'cargarFacturaFIGS',
+      items: JSON.stringify(params.items),
+      subtotal: String(params.subtotal),
+      iva: String(params.iva),
+      descuento: String(params.descuento),
+      numFactura: params.numFactura,
+      fecha: params.fecha,
+      usuario,
+    });
+  },
+
+  async cargarEnvioCourier(params: CargarCourierParams, usuario: string) {
+    return apiCall({
+      action: 'cargarEnvioCourier',
+      pedidos: JSON.stringify(params.pedidos),
+      costoCourier: String(params.costoCourier),
+      fecha: params.fecha,
       usuario,
     });
   },
