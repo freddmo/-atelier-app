@@ -21,6 +21,8 @@ function fmtDateShort(d: string) {
   return new Date(d + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 }
 
+type TipoFiltro = 'TODOS' | 'PEDIDO' | 'STOCK';
+
 export default function ReportesPage() {
   const router = useRouter();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -29,6 +31,7 @@ export default function ReportesPage() {
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   const [fechaInicio, setFechaInicio] = useState(firstOfMonth.toISOString().split('T')[0]);
   const [fechaFin, setFechaFin] = useState(today.toISOString().split('T')[0]);
+  const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('TODOS');
 
   useEffect(() => {
     const user = auth.getUser();
@@ -47,10 +50,20 @@ export default function ReportesPage() {
     }
   }
 
-  const filtered = pedidos.filter(p => {
+  const filteredByDate = pedidos.filter(p => {
     if (!p.F_ORDEN) return false;
     return p.F_ORDEN >= fechaInicio && p.F_ORDEN <= fechaFin;
   });
+
+  const filtered = filteredByDate.filter(p => {
+    if (tipoFiltro === 'TODOS') return true;
+    const tipo = String(p.TIPO_DE_ORDEN || '').toUpperCase().trim();
+    return tipo === tipoFiltro;
+  });
+
+  const countTodos = filteredByDate.length;
+  const countPedido = filteredByDate.filter(p => String(p.TIPO_DE_ORDEN || '').toUpperCase().trim() === 'PEDIDO').length;
+  const countStock = filteredByDate.filter(p => String(p.TIPO_DE_ORDEN || '').toUpperCase().trim() === 'STOCK').length;
 
   const totalVenta = filtered.reduce((a, p) => a + p.totales.venta, 0);
   const totalCostos = filtered.reduce((a, p) => a + p.totales.costos, 0);
@@ -73,6 +86,22 @@ export default function ReportesPage() {
     setFechaInicio(inicio); setFechaFin(fin);
   }
 
+  function tabStyle(active: boolean, color: string) {
+    return {
+      flex: 1,
+      padding: '12px 16px',
+      cursor: 'pointer' as const,
+      textAlign: 'center' as const,
+      fontSize: 13,
+      fontWeight: active ? 600 : 400,
+      letterSpacing: '0.02em',
+      background: active ? 'var(--surface)' : 'transparent',
+      color: active ? color : 'var(--text-soft)',
+      borderBottom: `2px solid ${active ? color : 'transparent'}`,
+      transition: 'all 0.15s',
+    };
+  }
+
   return (
     <>
       <Navbar />
@@ -83,6 +112,20 @@ export default function ReportesPage() {
             Reportes<em style={{ color: 'var(--gold)' }}>.</em>
           </h1>
           <p style={{ color: 'var(--text-soft)', fontSize: 14, margin: '12px 0 0' }}>Ganancia y desempeño por período</p>
+        </div>
+
+        <div className="card" style={{ padding: 0, marginBottom: 16, overflow: 'hidden' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
+            <div onClick={() => setTipoFiltro('TODOS')} style={tabStyle(tipoFiltro === 'TODOS', 'var(--text)')}>
+              Todos <span style={{ opacity: 0.6, marginLeft: 4 }}>({countTodos})</span>
+            </div>
+            <div onClick={() => setTipoFiltro('PEDIDO')} style={tabStyle(tipoFiltro === 'PEDIDO', 'var(--blue)')}>
+              Pedidos <span style={{ opacity: 0.6, marginLeft: 4 }}>({countPedido})</span>
+            </div>
+            <div onClick={() => setTipoFiltro('STOCK')} style={tabStyle(tipoFiltro === 'STOCK', 'var(--amber)')}>
+              Stock <span style={{ opacity: 0.6, marginLeft: 4 }}>({countStock})</span>
+            </div>
+          </div>
         </div>
 
         <div className="card" style={{ padding: 24, marginBottom: 24 }}>
@@ -106,7 +149,9 @@ export default function ReportesPage() {
 
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 1, background: 'var(--border)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', marginBottom: 24 }}>
           <div style={{ background: 'var(--surface)', padding: 28 }}>
-            <div style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>Ganancia del período</div>
+            <div style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>
+              Ganancia · {tipoFiltro === 'TODOS' ? 'Todos' : tipoFiltro === 'PEDIDO' ? 'Pedidos' : 'Stock'}
+            </div>
             <div className="display tabular" style={{ fontSize: 56, fontWeight: 300, color: ganancia >= 0 ? 'var(--green)' : 'var(--rose)', lineHeight: 1, marginBottom: 8 }}>
               {fmtMoney(ganancia)}
             </div>
@@ -119,7 +164,7 @@ export default function ReportesPage() {
             <span className="display tabular" style={{ fontSize: 28, fontWeight: 300, color: 'var(--text)', lineHeight: 1 }}>{fmtMoney(totalVenta)}</span>
           </div>
           <div style={{ background: 'var(--surface)', padding: 20 }}>
-            <div style={{ fontSize: 10, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>Pedidos</div>
+            <div style={{ fontSize: 10, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>Cantidad</div>
             <span className="display tabular" style={{ fontSize: 36, fontWeight: 300, color: 'var(--blue)', lineHeight: 1 }}>{filtered.length}</span>
           </div>
         </div>
@@ -134,15 +179,17 @@ export default function ReportesPage() {
             <span className="display tabular" style={{ fontSize: 24, fontWeight: 300, color: 'var(--text)' }}>{fmtMoney(promedio)}</span>
           </div>
           <div style={{ background: 'var(--surface)', padding: 20 }}>
-            <div style={{ fontSize: 10, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>Ganancia/pedido</div>
+            <div style={{ fontSize: 10, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>Ganancia por orden</div>
             <span className="display tabular" style={{ fontSize: 24, fontWeight: 300, color: 'var(--green)' }}>{fmtMoney(filtered.length > 0 ? ganancia / filtered.length : 0)}</span>
           </div>
         </div>
 
         <div style={{ marginBottom: 16 }}>
-          <h2 className="display" style={{ fontSize: 24, fontWeight: 400, margin: '0 0 4px' }}>Detalle de pedidos</h2>
+          <h2 className="display" style={{ fontSize: 24, fontWeight: 400, margin: '0 0 4px' }}>
+            Detalle {tipoFiltro === 'TODOS' ? 'de todas las órdenes' : tipoFiltro === 'PEDIDO' ? 'de pedidos' : 'de stock'}
+          </h2>
           <p style={{ color: 'var(--text-soft)', fontSize: 13, margin: 0 }}>
-            {filtered.length} pedidos entre {fmtDate(fechaInicio)} y {fmtDate(fechaFin)}
+            {filtered.length} órden{filtered.length === 1 ? '' : 'es'} entre {fmtDate(fechaInicio)} y {fmtDate(fechaFin)}
           </p>
         </div>
 
@@ -150,7 +197,7 @@ export default function ReportesPage() {
           <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-faint)' }}>Cargando…</div>
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 64, color: 'var(--text-faint)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6 }}>
-            No hay pedidos en este período
+            No hay {tipoFiltro === 'TODOS' ? 'órdenes' : tipoFiltro === 'PEDIDO' ? 'pedidos' : 'órdenes de stock'} en este período
           </div>
         ) : (
           <div className="card" style={{ overflow: 'hidden' }}>
@@ -158,7 +205,8 @@ export default function ReportesPage() {
               <thead>
                 <tr style={{ background: 'var(--bg)' }}>
                   <th style={{ textAlign: 'left', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>ID</th>
-                  <th style={{ textAlign: 'left', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Clienta</th>
+                  <th style={{ textAlign: 'left', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Cliente / Concepto</th>
+                  <th style={{ textAlign: 'left', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Tipo</th>
                   <th style={{ textAlign: 'left', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Fecha</th>
                   <th style={{ textAlign: 'right', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Venta</th>
                   <th style={{ textAlign: 'right', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Costos</th>
@@ -168,10 +216,17 @@ export default function ReportesPage() {
               <tbody>
                 {filtered.map(p => {
                   const g = p.totales.ganancia;
+                  const tipo = String(p.TIPO_DE_ORDEN || '').toUpperCase().trim();
+                  const isStock = tipo === 'STOCK';
                   return (
                     <tr key={p.ORDEN_ID} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }} onClick={() => router.push(`/pedido/${encodeURIComponent(p.ORDEN_ID)}`)}>
                       <td style={{ padding: '14px 20px' }} className="mono">{p.ORDEN_ID}</td>
                       <td style={{ padding: '14px 20px' }} className="display">{p.NOMBRE}</td>
+                      <td style={{ padding: '14px 20px' }}>
+                        <span className="pill" style={{ background: isStock ? 'var(--amber-bg)' : 'var(--blue-bg)', color: isStock ? 'var(--amber)' : 'var(--blue)' }}>
+                          {tipo || '—'}
+                        </span>
+                      </td>
                       <td style={{ padding: '14px 20px', color: 'var(--text-soft)' }}>{fmtDateShort(p.F_ORDEN)}</td>
                       <td style={{ padding: '14px 20px', textAlign: 'right' }} className="tabular">{fmtMoney(p.totales.venta)}</td>
                       <td style={{ padding: '14px 20px', textAlign: 'right', color: 'var(--text-soft)' }} className="tabular">{fmtMoney(p.totales.costos)}</td>
