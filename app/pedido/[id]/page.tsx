@@ -18,8 +18,10 @@ function fmtDate(d: string) {
 }
 
 function diasAtraso(p: Pedido): number | null {
-  if (p.ESTATUS_ENVIO === 'ENTREGADO' || !p.F_ENTREGA) return null;
-  const entrega = new Date(p.F_ENTREGA + 'T12:00:00');
+  if (p.ESTATUS_ENVIO === 'ENTREGADO' || p.ESTATUS_ENVIO === 'CANCELADO' || !p.F_ENTREGA_EST) return null;
+  // F_ENTREGA_EST puede ser "POR DEFINIR" — en ese caso no calculamos atraso
+  if (isNaN(Date.parse(p.F_ENTREGA_EST + 'T12:00:00'))) return null;
+  const entrega = new Date(p.F_ENTREGA_EST + 'T12:00:00');
   const limite = new Date(entrega);
   limite.setDate(limite.getDate() + 14);
   const hoy = new Date();
@@ -108,9 +110,9 @@ export default function PedidoDetallePage() {
 
   const currentIdx = ESTADOS.indexOf(pedido.ESTATUS_ENVIO);
   const atraso = diasAtraso(pedido);
-  const saldo = pedido.totales.venta - pedido.totales.pagado;
+  const saldo = pedido.totales.saldo;
   const showMoney = isAdmin;
-  const hasRegalo = pedido.REGALO === 'SI' || pedido.REGALO === 'Sí' || pedido.REGALO === 'si';
+  const hasRegalo = !!pedido.REGALO_ENVIADO && String(pedido.REGALO_ENVIADO).trim() !== '';
   const totalCantidad = pedido.items.reduce((a, i) => a + (Number(i.CANTIDAD) || 0), 0);
 
   return (
@@ -128,7 +130,7 @@ export default function PedidoDetallePage() {
               {hasRegalo && <span className="pill" style={{ background: '#FAF0E0', color: 'var(--gold)' }}>✦ Regalo</span>}
               {atraso !== null && <span className="pill" style={{ background: 'var(--rose-bg)', color: 'var(--rose)' }}>Atrasado {atraso}d</span>}
             </div>
-            <h1 className="display" style={{ fontSize: 48, fontWeight: 300, margin: 0, lineHeight: 1 }}>{pedido.NOMBRE}</h1>
+            <h1 className="display" style={{ fontSize: 48, fontWeight: 300, margin: 0, lineHeight: 1 }}>{pedido.CLIENTE_NOMBRE}</h1>
             <p style={{ color: 'var(--text-soft)', margin: '10px 0 0', fontSize: 14 }}>Pedido del {fmtDate(pedido.F_ORDEN)}</p>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -186,17 +188,13 @@ export default function PedidoDetallePage() {
               </div>
               <div>
                 <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 6 }}>TIPO DE ENVÍO</div>
-                <div style={{ fontSize: 14 }}>
-                  {pedido.cliente?.CIUDAD?.toUpperCase().includes('GUAYAQUIL') 
-                    ? 'Delivery local' 
-                    : 'Servientrega / Cooperativa'}
-                </div>
+                <div style={{ fontSize: 14 }}>{pedido.METODO_ENVIO || '—'}</div>
               </div>
-          </div>
-            {pedido.NOTAS_REGALOS && (
+            </div>
+            {pedido.NOTAS && (
               <div style={{ marginTop: 20, padding: 14, background: 'var(--bg)', borderRadius: 4, borderLeft: '2px solid var(--gold)' }}>
                 <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 4 }}>NOTAS</div>
-                <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.5 }}>{pedido.NOTAS_REGALOS}</div>
+                <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.5 }}>{pedido.NOTAS}</div>
               </div>
             )}
           </div>
@@ -241,9 +239,10 @@ export default function PedidoDetallePage() {
               <div key={idx} style={{ display: 'grid', gridTemplateColumns: showMoney ? '24px 1fr auto auto auto' : '24px 1fr auto', gap: 16, alignItems: 'center', padding: 14, background: 'var(--bg)', borderRadius: 4 }}>
                 <span className="display" style={{ fontSize: 18, fontWeight: 300, color: 'var(--text-faint)' }}>{String(idx + 1).padStart(2, '0')}</span>
                 <div style={{ minWidth: 0 }}>
-                  <div className="display" style={{ fontSize: 16, fontWeight: 400, marginBottom: 4 }}>{item.PRODUCTO}</div>
+                  <div className="display" style={{ fontSize: 16, fontWeight: 400, marginBottom: 4 }}>{item.NOMBRE_PRODUCTO || item.SKU}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>
-                    {item.TIPO_PRENDA} · Talla {item.TALLA} · {item.COLOR}
+                    {item.TIPO_PRENDA} · Talla {item.TALLA} · {item.LONGITUD} · {item.COLOR}
+                    {item.PARTE_DE_SET ? ` · ${item.PARTE_DE_SET}` : ''}
                   </div>
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--text-soft)' }}>×{item.CANTIDAD}</div>
@@ -264,7 +263,7 @@ export default function PedidoDetallePage() {
               <div style={{ fontSize: 22, color: 'var(--gold)' }}>✦</div>
               <div>
                 <div style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>Incluye regalo</div>
-                <div style={{ fontSize: 14 }}>{pedido.NOTAS_REGALOS || 'Sí'}</div>
+                <div style={{ fontSize: 14 }}>{pedido.REGALO_ENVIADO}</div>
               </div>
             </div>
           </div>
