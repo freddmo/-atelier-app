@@ -28,6 +28,53 @@ export type NuevoPago = {
   notas?: string;
 };
 
+export type Cliente = {
+  CLIENTE_ID: string;
+  NOMBRE: string;
+  TELEFONO: string;
+  DIRECCION: string;
+  CIUDAD: string;
+  CEDULA_RUC: string;
+  INDUSTRIA: string;
+  EMAIL: string;
+};
+
+export type SetCatalogo = {
+  SET_NOMBRE: string;
+  SKU_TOP: string;
+  SKU_PANTALON: string;
+  PRECIO_SET: number;
+};
+
+export type NuevoPedidoItem = {
+  sku: string;
+  talla: string;
+  longitud: string;
+  color: string;
+  cantidad: number;
+  precioVenta: number;
+  parteDeSet: string;
+};
+
+export type CrearPedidoParams = {
+  cliente: {
+    esNuevo: boolean;
+    clienteId?: string;
+    nombre?: string;
+    telefono?: string;
+    direccion?: string;
+    ciudad?: string;
+    cedulaRuc?: string;
+    industria?: string;
+    email?: string;
+  };
+  items: NuevoPedidoItem[];
+  descuento: { monto: number; nota: string };
+  estado: string;
+  notas: string;
+  fecha: string;
+};
+
 // Item de pedido pendiente de costo (lo que devuelve getItemsPendientesCostos)
 export type ItemPendiente = {
   _rowNum: number;
@@ -216,6 +263,24 @@ export const api = {
       action: 'asignarStock',
       asignaciones: JSON.stringify(asignaciones),
       fecha,
+      usuario,
+    });
+  },
+  async getClientes(): Promise<Cliente[]> {
+    return apiCall<Cliente[]>({ action: 'getClientes' });
+  },
+  async getSets(): Promise<SetCatalogo[]> {
+    return apiCall<SetCatalogo[]>({ action: 'getSets' });
+  },
+  async crearPedido(params: CrearPedidoParams, usuario: string) {
+    return apiCall<{ ordenId: string; clienteId: string; clienteNuevo: boolean; itemsCreados: number; descuentoAplicado: number }>({
+      action: 'crearPedido',
+      cliente: JSON.stringify(params.cliente),
+      items: JSON.stringify(params.items),
+      descuento: JSON.stringify(params.descuento),
+      estado: params.estado,
+      notas: params.notas,
+      fecha: params.fecha,
       usuario,
     });
   },
