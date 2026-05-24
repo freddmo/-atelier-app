@@ -57,7 +57,24 @@ export type PedidoPendienteCourier = {
   CLIENTE_NOMBRE: string;
   ESTATUS_ENVIO: string;
   F_ORDEN: string;
-  cantidadItems: number;
+  numItems: number;
+};
+
+export type LotePendienteCourier = {
+  LOTE_ID: string;
+  SKU: string;
+  TALLA: string;
+  LONGITUD: string;
+  COLOR: string;
+  CANT_INICIAL: number;
+  COSTO_UNITARIO: number;
+};
+
+export type CargarCourierParams = {
+  pedidos: { ordenId: string; numItems: number }[];
+  lotes: { loteId: string; cantInicial: number }[];
+  costoCourier: number;
+  fecha: string;
 };
 
 // Un item de la factura al enviarla al backend
@@ -140,4 +157,21 @@ export const api = {
       usuario,
     });
   },
+  async getPedidosPendientesCourier(): Promise<PedidoPendienteCourier[]> {
+    return apiCall<PedidoPendienteCourier[]>({ action: 'getPedidosPendientesCourier' });
+  },
+  async getLotesPendientesCourier(): Promise<LotePendienteCourier[]> {
+    return apiCall<LotePendienteCourier[]>({ action: 'getLotesPendientesCourier' });
+  },
+  async cargarEnvioCourier(params: CargarCourierParams, usuario: string) {
+    return apiCall({
+      action: 'cargarEnvioCourier',
+      pedidos: JSON.stringify(params.pedidos),
+      lotes: JSON.stringify(params.lotes),
+      costoCourier: String(params.costoCourier),
+      fecha: params.fecha,
+      usuario,
+    });
+  },
+  
 };
