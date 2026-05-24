@@ -54,6 +54,9 @@ export default function Navbar() {
           <nav className="hide-mobile" style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
             <button className={`nav-link ${isActive('/pedidos') ? 'active' : ''}`} onClick={() => router.push('/pedidos')}>Pedidos</button>
             {isAdmin && (
+              <button className={`nav-link ${isActive('/nuevo-pedido') ? 'active' : ''}`} onClick={() => router.push('/nuevo-pedido')}>Nuevo pedido</button>
+            )}
+            {isAdmin && (
               <button className={`nav-link ${isActive('/reportes') ? 'active' : ''}`} onClick={() => router.push('/reportes')}>Reportes</button>
             )}
             {isAdmin && (
@@ -129,6 +132,9 @@ export default function Navbar() {
         <div className="show-mobile" style={{ borderTop: '1px solid var(--border)', padding: '16px 24px', background: 'var(--bg)' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <button className={`nav-link ${isActive('/pedidos') ? 'active' : ''}`} onClick={() => { router.push('/pedidos'); setMobileOpen(false); }}>Pedidos</button>
+            {isAdmin && (
+              <button className={`nav-link ${isActive('/nuevo-pedido') ? 'active' : ''}`} onClick={() => { router.push('/nuevo-pedido'); setMobileOpen(false); }}>Nuevo pedido</button>
+            )}
             {isAdmin && (
               <button className={`nav-link ${isActive('/reportes') ? 'active' : ''}`} onClick={() => { router.push('/reportes'); setMobileOpen(false); }}>Reportes</button>
             )}
