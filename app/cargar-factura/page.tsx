@@ -53,7 +53,6 @@ export default function CargarFacturaPage() {
   // Datos de la factura
   const [numFactura, setNumFactura] = useState('');
   const [fecha, setFecha] = useState(today);
-  const [descuento, setDescuento] = useState('0');
   const [iva, setIva] = useState('0');
   const [shipping, setShipping] = useState('0');
 
@@ -150,20 +149,14 @@ export default function CargarFacturaPage() {
   const subtotalStock = itemsStock.reduce((s, i) => s + (i.precioFIGS || 0) * (i.cantidad || 0), 0);
   const subtotal = subtotalPedido + subtotalStock;
 
-  const descNum = Number(descuento) || 0;
   const ivaNum = Number(iva) || 0;
   const shippingNum = Number(shipping) || 0;
-  const totalFactura = subtotal - descNum + ivaNum + shippingNum;
+  const totalFactura = subtotal + ivaNum + shippingNum;
 
-  // Preview: costo por item (descuento ANTES del IVA)
-  function calcCosto(precioFIGS: number): number {
+ function calcCosto(precioFIGS: number): number {
     if (subtotal <= 0) return 0;
     const pct = precioFIGS / subtotal;
-    const descItem = descNum * pct;
-    const base = precioFIGS - descItem;
-    const ivaItem = ivaNum * pct;
-    const shipItem = shippingNum * pct;
-    return base + ivaItem + shipItem;
+    return precioFIGS + ivaNum * pct + shippingNum * pct;
   }
 
   const totalItems = itemsPedido.length + itemsStock.length;
@@ -226,7 +219,6 @@ export default function CargarFacturaPage() {
       await api.cargarFacturaFIGS({
         items: payload,
         subtotal,
-        descuento: descNum,
         iva: ivaNum,
         shipping: shippingNum,
         numFactura: numFactura.trim(),
@@ -240,7 +232,6 @@ export default function CargarFacturaPage() {
       setItemsPedido([]);
       setItemsStock([]);
       setNumFactura('');
-      setDescuento('0');
       setIva('0');
       setShipping('0');
       load();
@@ -262,14 +253,14 @@ export default function CargarFacturaPage() {
           </h1>
           <p style={{ color: 'var(--text-soft)', fontSize: 14, margin: '12px 0 0', maxWidth: 640 }}>
             Marca los items que van a pedidos existentes y agrega los items que entran como stock.
-            El sistema reparte descuento, IVA y shipping proporcionalmente.
+            El sistema reparte IVA y shipping proporcionalmente.
           </p>
         </div>
 
         {/* 1. DATOS DE FACTURA */}
         <div className="card" style={{ padding: 28, marginBottom: 20 }}>
           <h3 style={{ margin: '0 0 20px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>1. Datos de la factura</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 16 }}>
             <div>
               <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>N° Factura</label>
               <input className="input" placeholder="33027108" value={numFactura} onChange={(e) => setNumFactura(e.target.value)} style={{ marginTop: 4 }} />
@@ -277,10 +268,6 @@ export default function CargarFacturaPage() {
             <div>
               <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Fecha</label>
               <input type="date" className="input" value={fecha} onChange={(e) => setFecha(e.target.value)} style={{ marginTop: 4 }} />
-            </div>
-            <div>
-              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Descuento ($)</label>
-              <input type="number" step="0.01" className="input" value={descuento} onChange={(e) => setDescuento(e.target.value)} style={{ marginTop: 4 }} />
             </div>
             <div>
               <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>IVA / Tax ($)</label>
@@ -453,10 +440,6 @@ export default function CargarFacturaPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-soft)', marginBottom: 5 }}>
                 <span>Subtotal items ({totalItems})</span>
                 <span className="tabular">{fmtMoney(subtotal)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-soft)', marginBottom: 5 }}>
-                <span>Descuento</span>
-                <span className="tabular" style={{ color: descNum > 0 ? 'var(--green)' : 'var(--text-soft)' }}>−{fmtMoney(descNum)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-soft)', marginBottom: 5 }}>
                 <span>IVA</span>
