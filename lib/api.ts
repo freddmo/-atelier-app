@@ -102,6 +102,41 @@ export type CargarFacturaParams = {
   fecha: string;
 };
 
+export type ItemConStock = {
+  _rowNum: number;
+  SKU: string;
+  NOMBRE_PRODUCTO: string;
+  TALLA: string;
+  LONGITUD: string;
+  COLOR: string;
+  CANTIDAD: number;
+  stockTotal: number;
+  hayStock: boolean;
+  loteSugerido: {
+    LOTE_ID: string;
+    COSTO_UNITARIO: number;
+    tieneCourier: boolean;
+  } | null;
+};
+
+export type PedidoConStock = {
+  ORDEN_ID: string;
+  CLIENTE_NOMBRE: string;
+  ESTATUS_ENVIO: string;
+  items: ItemConStock[];
+};
+
+export type AsignacionStock = {
+  ordenId: string;
+  itemRowNum: number;
+  sku: string;
+  talla: string;
+  longitud: string;
+  color: string;
+  cantidad: number;
+};
+
+
 export const api = {
   async ping() {
     return apiCall<{ message: string }>({ action: 'ping' });
@@ -173,5 +208,15 @@ export const api = {
       usuario,
     });
   },
-  
+  async getStockDisponiblePorItem(): Promise<PedidoConStock[]> {
+    return apiCall<PedidoConStock[]>({ action: 'getStockDisponiblePorItem' });
+  },
+  async asignarStock(asignaciones: AsignacionStock[], fecha: string, usuario: string) {
+    return apiCall({
+      action: 'asignarStock',
+      asignaciones: JSON.stringify(asignaciones),
+      fecha,
+      usuario,
+    });
+  },
 };
