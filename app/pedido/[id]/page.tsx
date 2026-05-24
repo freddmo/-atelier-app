@@ -180,7 +180,7 @@ export default function PedidoDetallePage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 20, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
               <div>
                 <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 6 }}>TELÉFONO</div>
-                <a href={`tel:${pedido.cliente?.TELEFONO?.replace(/\s/g, '') || ''}`} className="mono" style={{ fontSize: 14, color: 'var(--text)', textDecoration: 'none' }}>{pedido.cliente?.TELEFONO || '—'}</a>
+                <a href={`tel:${String(pedido.cliente?.TELEFONO || '').replace(/\s/g, '')}`} className="mono" style={{ fontSize: 14, color: 'var(--text)', textDecoration: 'none' }}>{pedido.cliente?.TELEFONO || '—'}</a>
               </div>
               <div>
                 <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 6 }}>CÉDULA / RUC</div>
