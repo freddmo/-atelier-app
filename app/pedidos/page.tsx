@@ -42,7 +42,9 @@ export default function PedidosPage() {
     }
   }
 
-  const activos = pedidos.filter(p => p.ESTATUS_ENVIO !== 'ENTREGADO');
+  const activos = pedidos.filter(
+    p => p.ESTATUS_ENVIO !== 'ENTREGADO' && p.ESTATUS_ENVIO !== 'CANCELADO'
+  );
 
   let filtered = activos;
   if (filtroEstado !== 'todos') filtered = filtered.filter(p => p.ESTATUS_ENVIO === filtroEstado);
