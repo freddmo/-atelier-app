@@ -398,7 +398,7 @@ export default function CargarFacturaPage() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {itemsStock.map(item => (
-                <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.8fr 1fr 1fr 0.6fr 0.9fr auto', gap: 8, alignItems: 'end', padding: '10px 14px', background: 'var(--bg)', borderRadius: 4 }}>
+                <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.7fr 1fr 1fr 0.6fr 0.9fr auto', gap: 8, alignItems: 'end', padding: '10px 14px', background: 'var(--bg)', borderRadius: 4 }}>
                   <div>
                     <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>SKU</label>
                     <select
