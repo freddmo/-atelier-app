@@ -2,7 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, ItemPendiente, ItemFactura } from '@/lib/api';
+import {
+  api,
+  PedidoPendienteCostos,
+  ItemPendiente,
+  ItemFacturaPayload,
+} from '@/lib/api';
+import { Producto } from '@/lib/types';
 import { auth } from '@/lib/auth';
 import Navbar from '@/components/Navbar';
 
@@ -10,22 +16,52 @@ function fmtMoney(n: number) {
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-type ItemSeleccionado = ItemPendiente & {
+// Item de PEDIDO seleccionado (con su precio FIGS editable)
+type ItemPedidoSel = {
+  ordenId: string;
+  clienteNombre: string;
+  rowNum: number;
+  sku: string;
+  nombreProducto: string;
+  talla: string;
+  longitud: string;
+  color: string;
   precioFIGS: number;
 };
+
+// Item de STOCK agregado a mano
+type ItemStock = {
+  id: number; // id temporal local
+  sku: string;
+  talla: string;
+  longitud: string;
+  color: string;
+  cantidad: number;
+  precioFIGS: number;
+};
+
+const LONGITUDES = ['Regular', 'Petite', 'Tall'];
 
 export default function CargarFacturaPage() {
   const router = useRouter();
   const today = new Date().toISOString().split('T')[0];
 
-  const [itemsDisponibles, setItemsDisponibles] = useState<ItemPendiente[]>([]);
+  const [pedidosPendientes, setPedidosPendientes] = useState<PedidoPendienteCostos[]>([]);
+  const [productos, setProductos] = useState<Producto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [seleccionados, setSeleccionados] = useState<ItemSeleccionado[]>([]);
+
+  // Datos de la factura
   const [numFactura, setNumFactura] = useState('');
   const [fecha, setFecha] = useState(today);
-  const [iva, setIva] = useState('0');
   const [descuento, setDescuento] = useState('0');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [iva, setIva] = useState('0');
+  const [shipping, setShipping] = useState('0');
+
+  // Items de PEDIDO seleccionados
+  const [itemsPedido, setItemsPedido] = useState<ItemPedidoSel[]>([]);
+  // Items de STOCK agregados
+  const [itemsStock, setItemsStock] = useState<ItemStock[]>([]);
+
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState('');
 
@@ -39,97 +75,174 @@ export default function CargarFacturaPage() {
   async function load() {
     setLoading(true);
     try {
-      const data = await api.getItemsPendientesCostos();
-      setItemsDisponibles(data);
+      const [pend, prods] = await Promise.all([
+        api.getItemsPendientesCostos(),
+        api.getProductos(),
+      ]);
+      setPedidosPendientes(pend);
+      setProductos(prods);
     } catch (err) {
-      alert('Error al cargar items: ' + (err instanceof Error ? err.message : 'desconocido'));
+      alert('Error al cargar: ' + (err instanceof Error ? err.message : 'desconocido'));
     } finally {
       setLoading(false);
     }
   }
 
-  function toggleItem(item: ItemPendiente) {
-    const key = `${item.ORDEN_ID}-${item.itemIndex}`;
-    const exists = seleccionados.find(s => `${s.ORDEN_ID}-${s.itemIndex}` === key);
+  // ===== ITEMS DE PEDIDO =====
+  function isItemPedidoSelected(ordenId: string, rowNum: number): boolean {
+    return itemsPedido.some(i => i.ordenId === ordenId && i.rowNum === rowNum);
+  }
+
+  function toggleItemPedido(pedido: PedidoPendienteCostos, item: ItemPendiente) {
+    const exists = isItemPedidoSelected(pedido.ORDEN_ID, item._rowNum);
     if (exists) {
-      setSeleccionados(seleccionados.filter(s => `${s.ORDEN_ID}-${s.itemIndex}` !== key));
+      setItemsPedido(itemsPedido.filter(
+        i => !(i.ordenId === pedido.ORDEN_ID && i.rowNum === item._rowNum)
+      ));
     } else {
-      setSeleccionados([...seleccionados, { ...item, precioFIGS: 0 }]);
+      setItemsPedido([...itemsPedido, {
+        ordenId: pedido.ORDEN_ID,
+        clienteNombre: pedido.CLIENTE_NOMBRE,
+        rowNum: item._rowNum,
+        sku: item.SKU,
+        nombreProducto: item.NOMBRE_PRODUCTO,
+        talla: item.TALLA,
+        longitud: item.LONGITUD,
+        color: item.COLOR,
+        precioFIGS: 0,
+      }]);
     }
   }
 
-  function isSelected(item: ItemPendiente): boolean {
-    const key = `${item.ORDEN_ID}-${item.itemIndex}`;
-    return seleccionados.some(s => `${s.ORDEN_ID}-${s.itemIndex}` === key);
+  function updatePrecioPedido(rowNum: number, ordenId: string, valor: string) {
+    setItemsPedido(itemsPedido.map(i =>
+      (i.ordenId === ordenId && i.rowNum === rowNum)
+        ? { ...i, precioFIGS: Number(valor) || 0 }
+        : i
+    ));
   }
 
-  function updatePrecioFIGS(idx: number, valor: string) {
-    const newSeleccionados = [...seleccionados];
-    newSeleccionados[idx].precioFIGS = Number(valor) || 0;
-    setSeleccionados(newSeleccionados);
+  // ===== ITEMS DE STOCK =====
+  function addItemStock() {
+    setItemsStock([...itemsStock, {
+      id: Date.now(),
+      sku: productos.length > 0 ? productos[0].SKU : '',
+      talla: '',
+      longitud: 'Regular',
+      color: '',
+      cantidad: 1,
+      precioFIGS: 0,
+    }]);
   }
 
-  const subtotal = seleccionados.reduce((s, i) => s + (i.precioFIGS || 0), 0);
-  const ivaNum = Number(iva) || 0;
+  function updateItemStock(id: number, campo: keyof ItemStock, valor: string | number) {
+    setItemsStock(itemsStock.map(i =>
+      i.id === id ? { ...i, [campo]: valor } : i
+    ));
+  }
+
+  function removeItemStock(id: number) {
+    setItemsStock(itemsStock.filter(i => i.id !== id));
+  }
+
+  // ===== CÁLCULOS =====
+  const subtotalPedido = itemsPedido.reduce((s, i) => s + (i.precioFIGS || 0), 0);
+  const subtotalStock = itemsStock.reduce((s, i) => s + (i.precioFIGS || 0) * (i.cantidad || 0), 0);
+  const subtotal = subtotalPedido + subtotalStock;
+
   const descNum = Number(descuento) || 0;
-  const total = subtotal + ivaNum - descNum;
+  const ivaNum = Number(iva) || 0;
+  const shippingNum = Number(shipping) || 0;
+  const totalFactura = subtotal - descNum + ivaNum + shippingNum;
 
-  // Calcular preview
-  const preview = seleccionados.map(item => {
-    const pct = subtotal > 0 ? item.precioFIGS / subtotal : 0;
-    const ivaItem = ivaNum * pct;
+  // Preview: costo por item (descuento ANTES del IVA)
+  function calcCosto(precioFIGS: number): number {
+    if (subtotal <= 0) return 0;
+    const pct = precioFIGS / subtotal;
     const descItem = descNum * pct;
-    const bruto = item.precioFIGS + ivaItem - descItem;
-    return { ...item, pct, ivaItem, descItem, bruto };
-  });
+    const base = precioFIGS - descItem;
+    const ivaItem = ivaNum * pct;
+    const shipItem = shippingNum * pct;
+    return base + ivaItem + shipItem;
+  }
 
-  const filteredDisponibles = itemsDisponibles.filter(item => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      item.NOMBRE.toLowerCase().includes(q) ||
-      item.ORDEN_ID.toLowerCase().includes(q) ||
-      item.PRODUCTO.toLowerCase().includes(q)
-    );
-  });
+  const totalItems = itemsPedido.length + itemsStock.length;
 
   async function handleSubmit() {
-    if (seleccionados.length === 0) {
-      alert('Selecciona al menos un item');
+    if (totalItems === 0) {
+      alert('Agrega al menos un item (de pedido o de stock)');
       return;
     }
     if (subtotal <= 0) {
       alert('Ingresa los precios FIGS de los items');
       return;
     }
+    if (!numFactura.trim()) {
+      alert('Ingresa el número de factura');
+      return;
+    }
+    // Validar items de stock completos
+    for (const s of itemsStock) {
+      if (!s.sku || !s.talla.trim() || !s.color.trim() || s.cantidad <= 0 || s.precioFIGS <= 0) {
+        alert('Hay items de stock incompletos. Revisa SKU, talla, color, cantidad y precio.');
+        return;
+      }
+    }
+    // Validar precios de pedido
+    for (const p of itemsPedido) {
+      if (p.precioFIGS <= 0) {
+        alert(`Falta el precio FIGS de ${p.sku} (pedido ${p.ordenId})`);
+        return;
+      }
+    }
+
     const user = auth.getUser();
     if (!user) return;
 
+    const payload: ItemFacturaPayload[] = [
+      ...itemsPedido.map(i => ({
+        tipoReferencia: 'PEDIDO' as const,
+        ordenId: i.ordenId,
+        itemRowNum: i.rowNum,
+        sku: i.sku,
+        talla: i.talla,
+        longitud: i.longitud,
+        color: i.color,
+        precioFIGS: i.precioFIGS,
+      })),
+      ...itemsStock.map(i => ({
+        tipoReferencia: 'STOCK' as const,
+        sku: i.sku,
+        talla: i.talla,
+        longitud: i.longitud,
+        color: i.color,
+        cantidad: i.cantidad,
+        precioFIGS: i.precioFIGS,
+      })),
+    ];
+
     setSubmitting(true);
     try {
-      const itemsParaEnviar: ItemFactura[] = seleccionados.map(s => ({
-        ORDEN_ID: s.ORDEN_ID,
-        itemIndex: s.itemIndex,
-        precioFIGS: s.precioFIGS,
-      }));
-
       await api.cargarFacturaFIGS({
-        items: itemsParaEnviar,
+        items: payload,
         subtotal,
-        iva: ivaNum,
         descuento: descNum,
-        numFactura,
+        iva: ivaNum,
+        shipping: shippingNum,
+        numFactura: numFactura.trim(),
         fecha,
       }, user.usuario);
 
-      setToast(`✅ Factura cargada: ${seleccionados.length} items por ${fmtMoney(total)}`);
-      setTimeout(() => setToast(''), 3500);
-      
-      // Reset y recargar
-      setSeleccionados([]);
+      setToast(`✅ Factura ${numFactura} cargada: ${totalItems} items por ${fmtMoney(totalFactura)}`);
+      setTimeout(() => setToast(''), 4000);
+
+      // Reset
+      setItemsPedido([]);
+      setItemsStock([]);
       setNumFactura('');
-      setIva('0');
       setDescuento('0');
+      setIva('0');
+      setShipping('0');
       load();
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'desconocido'));
@@ -147,171 +260,240 @@ export default function CargarFacturaPage() {
           <h1 className="display" style={{ fontSize: 48, fontWeight: 300, margin: '6px 0 0', lineHeight: 1 }}>
             Cargar factura FIGS<em style={{ color: 'var(--gold)' }}>.</em>
           </h1>
-          <p style={{ color: 'var(--text-soft)', fontSize: 14, margin: '12px 0 0', maxWidth: 600 }}>
-            Selecciona los items comprados, agrega los datos de la factura y el sistema reparte el IVA y descuento automáticamente entre cada uniforme.
+          <p style={{ color: 'var(--text-soft)', fontSize: 14, margin: '12px 0 0', maxWidth: 640 }}>
+            Marca los items que van a pedidos existentes y agrega los items que entran como stock.
+            El sistema reparte descuento, IVA y shipping proporcionalmente.
           </p>
         </div>
 
-        {/* DATOS DE FACTURA */}
+        {/* 1. DATOS DE FACTURA */}
         <div className="card" style={{ padding: 28, marginBottom: 20 }}>
           <h3 style={{ margin: '0 0 20px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>1. Datos de la factura</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr 1fr', gap: 16 }}>
             <div>
-              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>N° Factura</label>
-              <input className="input" placeholder="FIGS-99887" value={numFactura} onChange={(e) => setNumFactura(e.target.value)} style={{ marginTop: 4 }} />
+              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>N° Factura</label>
+              <input className="input" placeholder="33027108" value={numFactura} onChange={(e) => setNumFactura(e.target.value)} style={{ marginTop: 4 }} />
             </div>
             <div>
-              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fecha</label>
+              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Fecha</label>
               <input type="date" className="input" value={fecha} onChange={(e) => setFecha(e.target.value)} style={{ marginTop: 4 }} />
             </div>
             <div>
-              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>IVA total ($)</label>
+              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Descuento ($)</label>
+              <input type="number" step="0.01" className="input" value={descuento} onChange={(e) => setDescuento(e.target.value)} style={{ marginTop: 4 }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>IVA / Tax ($)</label>
               <input type="number" step="0.01" className="input" value={iva} onChange={(e) => setIva(e.target.value)} style={{ marginTop: 4 }} />
             </div>
             <div>
-              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Descuento ($)</label>
-              <input type="number" step="0.01" className="input" value={descuento} onChange={(e) => setDescuento(e.target.value)} style={{ marginTop: 4 }} placeholder="0 = sin desc" />
+              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Shipping ($)</label>
+              <input type="number" step="0.01" className="input" value={shipping} onChange={(e) => setShipping(e.target.value)} style={{ marginTop: 4 }} />
             </div>
           </div>
         </div>
 
-        {/* SELECCIÓN DE ITEMS */}
+        {/* 2. ITEMS DE PEDIDO */}
         <div className="card" style={{ padding: 28, marginBottom: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
-            <h3 style={{ margin: 0, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-              2. Items en esta factura · <span className="tabular">{seleccionados.length}</span> seleccionados
-            </h3>
-          </div>
-          
-          <input
-            className="input"
-            placeholder="Buscar por cliente, ID o producto…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ marginBottom: 14 }}
-          />
+          <h3 style={{ margin: '0 0 6px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
+            2. Items para pedidos · <span className="tabular">{itemsPedido.length}</span> seleccionados
+          </h3>
+          <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '0 0 16px' }}>
+            Items de pedidos que esperan que se les cargue costo.
+          </p>
 
           {loading ? (
             <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-faint)' }}>Cargando…</div>
-          ) : filteredDisponibles.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-faint)', background: 'var(--bg)', borderRadius: 4 }}>
-              {itemsDisponibles.length === 0 
-                ? 'No hay items pendientes de cargar costo'
-                : 'Ningún item coincide con tu búsqueda'}
+          ) : pedidosPendientes.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-faint)', background: 'var(--bg)', borderRadius: 4 }}>
+              No hay pedidos pendientes de costo.
             </div>
           ) : (
-            <div style={{ maxHeight: 360, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {filteredDisponibles.map(item => {
-                const selected = isSelected(item);
-                return (
-                  <div
-                    key={`${item.ORDEN_ID}-${item.itemIndex}`}
-                    onClick={() => toggleItem(item)}
-                    style={{
-                      padding: '10px 14px',
-                      borderRadius: 4,
-                      cursor: 'pointer',
-                      background: selected ? 'var(--bg)' : 'transparent',
-                      border: `1px solid ${selected ? 'var(--text)' : 'var(--border)'}`,
-                      display: 'grid',
-                      gridTemplateColumns: 'auto 1fr auto auto',
-                      gap: 12,
-                      alignItems: 'center',
-                      transition: 'all 0.15s',
-                    }}
-                  >
-                    <div style={{ width: 18, height: 18, borderRadius: 3, border: `1.5px solid ${selected ? 'var(--text)' : 'var(--border)'}`, background: selected ? 'var(--text)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 12 }}>
-                      {selected ? '✓' : ''}
-                    </div>
-                    <div>
-                      <div className="display" style={{ fontSize: 14 }}>{item.PRODUCTO}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-soft)' }}>
-                        <span className="mono">{item.ORDEN_ID}</span> · {item.NOMBRE} · {item.TALLA} · {item.COLOR}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>×{item.CANTIDAD}</div>
-                    <div className="tabular" style={{ fontSize: 12, color: 'var(--text-soft)', minWidth: 70, textAlign: 'right' }}>
-                      Venta: {fmtMoney(Number(item.PRECIO_VENTA))}
-                    </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {pedidosPendientes.map(pedido => (
+                <div key={pedido.ORDEN_ID}>
+                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+                    <span className="mono">{pedido.ORDEN_ID}</span> · {pedido.CLIENTE_NOMBRE}
+                    <span style={{ color: 'var(--text-faint)', fontWeight: 400, marginLeft: 8 }}>{pedido.ESTATUS_ENVIO}</span>
                   </div>
-                );
-              })}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {pedido.items.map(item => {
+                      const selected = isItemPedidoSelected(pedido.ORDEN_ID, item._rowNum);
+                      const selData = itemsPedido.find(
+                        i => i.ordenId === pedido.ORDEN_ID && i.rowNum === item._rowNum
+                      );
+                      return (
+                        <div
+                          key={item._rowNum}
+                          style={{
+                            padding: '10px 14px',
+                            borderRadius: 4,
+                            background: selected ? 'var(--bg)' : 'transparent',
+                            border: `1px solid ${selected ? 'var(--text)' : 'var(--border)'}`,
+                            display: 'grid',
+                            gridTemplateColumns: 'auto 1fr 130px',
+                            gap: 12,
+                            alignItems: 'center',
+                          }}
+                        >
+                          <div
+                            onClick={() => toggleItemPedido(pedido, item)}
+                            style={{ width: 18, height: 18, borderRadius: 3, cursor: 'pointer', border: `1.5px solid ${selected ? 'var(--text)' : 'var(--border)'}`, background: selected ? 'var(--text)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 12 }}
+                          >
+                            {selected ? '✓' : ''}
+                          </div>
+                          <div onClick={() => toggleItemPedido(pedido, item)} style={{ cursor: 'pointer' }}>
+                            <div className="display" style={{ fontSize: 14 }}>{item.NOMBRE_PRODUCTO || item.SKU}</div>
+                            <div style={{ fontSize: 11, color: 'var(--text-soft)' }}>
+                              {item.TALLA} · {item.LONGITUD} · {item.COLOR}
+                              {item.PARTE_DE_SET ? ` · ${item.PARTE_DE_SET}` : ''}
+                            </div>
+                          </div>
+                          {selected ? (
+                            <div>
+                              <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Precio FIGS $</label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                className="input"
+                                value={selData?.precioFIGS || ''}
+                                onChange={(e) => updatePrecioPedido(item._rowNum, pedido.ORDEN_ID, e.target.value)}
+                                placeholder="0.00"
+                                style={{ marginTop: 2, padding: '6px 10px', fontSize: 13 }}
+                              />
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 11, color: 'var(--text-faint)', textAlign: 'right' }}>
+                              Venta {fmtMoney(Number(item.PRECIO_VENTA))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
 
-        {/* PRECIOS FIGS */}
-        {seleccionados.length > 0 && (
-          <div className="card" style={{ padding: 28, marginBottom: 20 }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-              3. Precio de FIGS por item
+        {/* 3. ITEMS DE STOCK */}
+        <div className="card" style={{ padding: 28, marginBottom: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+            <h3 style={{ margin: 0, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
+              3. Items para stock · <span className="tabular">{itemsStock.length}</span>
             </h3>
+            <button className="btn" onClick={addItemStock} style={{ padding: '6px 14px', fontSize: 12 }}>
+              + Agregar item de stock
+            </button>
+          </div>
+          <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '0 0 16px' }}>
+            Prendas que entran como inventario, sin clienta asignada.
+          </p>
+
+          {itemsStock.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-faint)', background: 'var(--bg)', borderRadius: 4, fontSize: 13 }}>
+              Sin items de stock. Usa el botón para agregar.
+            </div>
+          ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {seleccionados.map((item, idx) => (
-                <div key={`${item.ORDEN_ID}-${item.itemIndex}`} style={{ display: 'grid', gridTemplateColumns: '1fr 140px', gap: 12, alignItems: 'center', padding: '10px 14px', background: 'var(--bg)', borderRadius: 4 }}>
+              {itemsStock.map(item => (
+                <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.8fr 1fr 1fr 0.6fr 0.9fr auto', gap: 8, alignItems: 'end', padding: '10px 14px', background: 'var(--bg)', borderRadius: 4 }}>
                   <div>
-                    <div className="display" style={{ fontSize: 14 }}>{item.PRODUCTO}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text-soft)' }}>
-                      <span className="mono">{item.ORDEN_ID}</span> · {item.NOMBRE}
-                    </div>
+                    <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>SKU</label>
+                    <select
+                      className="input"
+                      value={item.sku}
+                      onChange={(e) => updateItemStock(item.id, 'sku', e.target.value)}
+                      style={{ marginTop: 2, padding: '6px 8px', fontSize: 12 }}
+                    >
+                      {productos.map(p => (
+                        <option key={p.SKU} value={p.SKU}>{p.SKU} — {p.NOMBRE}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Talla</label>
+                    <input className="input" value={item.talla} onChange={(e) => updateItemStock(item.id, 'talla', e.target.value)} placeholder="XS" style={{ marginTop: 2, padding: '6px 8px', fontSize: 12 }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Longitud</label>
+                    <select className="input" value={item.longitud} onChange={(e) => updateItemStock(item.id, 'longitud', e.target.value)} style={{ marginTop: 2, padding: '6px 8px', fontSize: 12 }}>
+                      {LONGITUDES.map(l => <option key={l} value={l}>{l}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Color</label>
+                    <input className="input" value={item.color} onChange={(e) => updateItemStock(item.id, 'color', e.target.value)} placeholder="Walnut" style={{ marginTop: 2, padding: '6px 8px', fontSize: 12 }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Cant</label>
+                    <input type="number" className="input" value={item.cantidad} onChange={(e) => updateItemStock(item.id, 'cantidad', Number(e.target.value) || 0)} style={{ marginTop: 2, padding: '6px 8px', fontSize: 12 }} />
                   </div>
                   <div>
                     <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Precio FIGS $</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="input"
-                      value={item.precioFIGS || ''}
-                      onChange={(e) => updatePrecioFIGS(idx, e.target.value)}
-                      placeholder="0.00"
-                      style={{ marginTop: 2, padding: '6px 10px', fontSize: 13 }}
-                    />
+                    <input type="number" step="0.01" className="input" value={item.precioFIGS || ''} onChange={(e) => updateItemStock(item.id, 'precioFIGS', Number(e.target.value) || 0)} placeholder="0.00" style={{ marginTop: 2, padding: '6px 8px', fontSize: 12 }} />
                   </div>
+                  <button className="btn" onClick={() => removeItemStock(item.id)} style={{ padding: '6px 10px', fontSize: 12, color: 'var(--rose)' }}>✕</button>
                 </div>
               ))}
             </div>
+          )}
+        </div>
 
-            <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-soft)', marginBottom: 6 }}>
-                <span>Subtotal items</span>
+        {/* 4. TOTALES + PREVIEW */}
+        {totalItems > 0 && (
+          <div className="card" style={{ padding: 28, marginBottom: 20, background: 'linear-gradient(to right, rgba(184,149,78,0.04), transparent)', borderColor: 'var(--gold)' }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold)' }}>
+              4. Resumen y preview
+            </h3>
+
+            {/* Totales */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-soft)', marginBottom: 5 }}>
+                <span>Subtotal items ({totalItems})</span>
                 <span className="tabular">{fmtMoney(subtotal)}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-soft)', marginBottom: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-soft)', marginBottom: 5 }}>
+                <span>Descuento</span>
+                <span className="tabular" style={{ color: descNum > 0 ? 'var(--green)' : 'var(--text-soft)' }}>−{fmtMoney(descNum)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-soft)', marginBottom: 5 }}>
                 <span>IVA</span>
                 <span className="tabular">+{fmtMoney(ivaNum)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-soft)', marginBottom: 8 }}>
-                <span>Descuento</span>
-                <span className="tabular" style={{ color: descNum > 0 ? 'var(--green)' : 'var(--text-soft)' }}>−{fmtMoney(descNum)}</span>
+                <span>Shipping</span>
+                <span className="tabular">+{fmtMoney(shippingNum)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', paddingTop: 8, borderTop: '1px solid var(--border)' }}>
                 <span style={{ fontSize: 13, fontWeight: 500 }}>Total factura</span>
-                <span className="display tabular" style={{ fontSize: 24 }}>{fmtMoney(total)}</span>
+                <span className="display tabular" style={{ fontSize: 24 }}>{fmtMoney(totalFactura)}</span>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* PREVIEW DE DISTRIBUCIÓN */}
-        {seleccionados.length > 0 && subtotal > 0 && (
-          <div className="card" style={{ padding: 28, marginBottom: 20, background: 'linear-gradient(to right, rgba(184,149,78,0.04), transparent)', borderColor: 'var(--gold)' }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold)' }}>
-              4. Preview · Costo bruto que se guardará
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {preview.map(p => (
-                <div key={`${p.ORDEN_ID}-${p.itemIndex}`} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto', gap: 12, alignItems: 'center', padding: '8px 14px', fontSize: 12 }}>
-                  <div>
-                    <span className="mono" style={{ color: 'var(--text-soft)' }}>{p.ORDEN_ID}</span>
-                    <span style={{ marginLeft: 8 }}>{p.PRODUCTO}</span>
-                  </div>
-                  <span className="tabular" style={{ color: 'var(--text-soft)' }}>${p.precioFIGS.toFixed(2)}</span>
-                  <span className="tabular" style={{ color: 'var(--text-faint)' }}>+ IVA ${p.ivaItem.toFixed(2)}</span>
-                  <span className="tabular" style={{ color: 'var(--text-faint)' }}>− Desc ${p.descItem.toFixed(2)}</span>
-                  <span className="display tabular" style={{ fontSize: 15, color: 'var(--gold)', minWidth: 80, textAlign: 'right' }}>${p.bruto.toFixed(2)}</span>
+            {/* Preview por item */}
+            {subtotal > 0 && (
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', marginBottom: 8 }}>Costo que se guardará por item</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {itemsPedido.map(i => (
+                    <div key={`p-${i.ordenId}-${i.rowNum}`} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 12, fontSize: 12, padding: '4px 0' }}>
+                      <span><span className="mono" style={{ color: 'var(--text-soft)' }}>{i.ordenId}</span> {i.sku}</span>
+                      <span className="tabular" style={{ color: 'var(--text-faint)' }}>FIGS ${i.precioFIGS.toFixed(2)}</span>
+                      <span className="display tabular" style={{ color: 'var(--gold)', minWidth: 80, textAlign: 'right' }}>${calcCosto(i.precioFIGS).toFixed(2)}</span>
+                    </div>
+                  ))}
+                  {itemsStock.map(i => (
+                    <div key={`s-${i.id}`} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 12, fontSize: 12, padding: '4px 0' }}>
+                      <span><span className="mono" style={{ color: 'var(--gold)' }}>STOCK</span> {i.sku} ×{i.cantidad}</span>
+                      <span className="tabular" style={{ color: 'var(--text-faint)' }}>FIGS ${i.precioFIGS.toFixed(2)}/u</span>
+                      <span className="display tabular" style={{ color: 'var(--gold)', minWidth: 80, textAlign: 'right' }}>${calcCosto(i.precioFIGS).toFixed(2)}/u</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -321,9 +503,9 @@ export default function CargarFacturaPage() {
           <button
             className="btn btn-primary"
             onClick={handleSubmit}
-            disabled={submitting || seleccionados.length === 0 || subtotal <= 0}
+            disabled={submitting || totalItems === 0 || subtotal <= 0}
           >
-            {submitting ? 'Guardando…' : `Guardar y distribuir (${seleccionados.length})`}
+            {submitting ? 'Guardando…' : `Guardar y distribuir (${totalItems})`}
           </button>
         </div>
       </div>
