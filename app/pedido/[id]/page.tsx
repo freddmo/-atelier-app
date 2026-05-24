@@ -7,6 +7,7 @@ import { auth } from '@/lib/auth';
 import { Pedido, Estado, ESTADOS } from '@/lib/types';
 import Navbar from '@/components/Navbar';
 import StateModal from '@/components/StateModal';
+import PaymentModal from '@/components/PaymentModal';
 
 function fmtMoney(n: number) {
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -45,6 +46,7 @@ export default function PedidoDetallePage() {
   const [toast, setToast] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [isBodega, setIsBodega] = useState(false);
+  const [showPayModal, setShowPayModal] = useState(false);
 
   useEffect(() => {
     const user = auth.getUser();
@@ -82,6 +84,20 @@ export default function PedidoDetallePage() {
       loadPedido();
     } catch (err) {
       alert('Error al cambiar estado: ' + (err instanceof Error ? err.message : 'desconocido'));
+    }
+  }
+
+  async function handleBorrarPago(ordenIdPago: string, fecha: string, monto: number) {
+    if (!confirm(`¿Borrar este movimiento de ${fmtMoney(Math.abs(monto))}?`)) return;
+    const user = auth.getUser();
+    if (!user) return;
+    try {
+      await api.borrarPago(ordenIdPago, fecha, monto, user.usuario);
+      setToast('Pago borrado');
+      setTimeout(() => setToast(''), 2500);
+      loadPedido();
+    } catch (err) {
+      alert('Error: ' + (err instanceof Error ? err.message : 'desconocido'));
     }
   }
 
@@ -225,6 +241,48 @@ export default function PedidoDetallePage() {
                   </div>
                 )}
               </div>
+
+              <button
+                className="btn btn-primary"
+                style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
+                onClick={() => setShowPayModal(true)}
+              >
+                + Registrar pago
+              </button>
+
+              {/* Lista de pagos */}
+              {pedido.pagos.length > 0 && (
+                <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', marginBottom: 8 }}>
+                    Pagos registrados
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {pedido.pagos.map((pago, idx) => {
+                      const monto = Number(pago.MONTO) || 0;
+                      const esDevolucion = monto < 0;
+                      return (
+                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, padding: '6px 0' }}>
+                          <div>
+                            <span className="tabular" style={{ color: esDevolucion ? 'var(--rose)' : 'var(--green)', fontWeight: 500 }}>
+                              {esDevolucion ? '−' : '+'}{fmtMoney(Math.abs(monto))}
+                            </span>
+                            <span style={{ color: 'var(--text-soft)', marginLeft: 8 }}>
+                              {pago.METODO} · {pago.FECHA_PAGO}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => handleBorrarPago(pago.ORDEN_ID, pago.FECHA_PAGO, monto)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-faint)', fontSize: 14 }}
+                            title="Borrar pago"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -282,6 +340,20 @@ export default function PedidoDetallePage() {
           estadoActual={pedido.ESTATUS_ENVIO}
           onClose={() => setShowModal(false)}
           onChange={handleChangeState}
+        />
+      )}
+
+      {showPayModal && (
+        <PaymentModal
+          ordenId={pedido.ORDEN_ID}
+          saldoActual={pedido.totales.saldo}
+          onClose={() => setShowPayModal(false)}
+          onSaved={() => {
+            setShowPayModal(false);
+            setToast('Pago registrado');
+            setTimeout(() => setToast(''), 2500);
+            loadPedido();
+          }}
         />
       )}
 
