@@ -79,7 +79,6 @@ export type ItemFacturaPayload = {
 export type CargarFacturaParams = {
   items: ItemFacturaPayload[];
   subtotal: number;
-  descuento: number;
   iva: number;
   shipping: number;
   numFactura: string;
@@ -134,7 +133,6 @@ export const api = {
       action: 'cargarFacturaFIGS',
       items: JSON.stringify(params.items),
       subtotal: String(params.subtotal),
-      descuento: String(params.descuento),
       iva: String(params.iva),
       shipping: String(params.shipping),
       numFactura: params.numFactura,
