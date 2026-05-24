@@ -18,9 +18,10 @@ function fmtDateShort(d: string) {
 }
 
 function diasAtraso(pedido: Pedido): number | null {
-  if (pedido.ESTATUS_ENVIO === 'ENTREGADO') return null;
-  if (!pedido.F_ENTREGA) return null;
-  const entrega = new Date(pedido.F_ENTREGA + 'T12:00:00');
+  if (pedido.ESTATUS_ENVIO === 'ENTREGADO' || pedido.ESTATUS_ENVIO === 'CANCELADO') return null;
+  if (!pedido.F_ENTREGA_EST) return null;
+  if (isNaN(Date.parse(pedido.F_ENTREGA_EST + 'T12:00:00'))) return null;
+  const entrega = new Date(pedido.F_ENTREGA_EST + 'T12:00:00');
   const limite = new Date(entrega);
   limite.setDate(limite.getDate() + 14);
   const hoy = new Date();
@@ -35,8 +36,8 @@ function stateClass(estado: string) {
 export default function OrderCard({ pedido, showMoney = false }: Props) {
   const router = useRouter();
   const atraso = diasAtraso(pedido);
-  const saldo = pedido.totales.venta - pedido.totales.pagado;
-  const hasRegalo = pedido.REGALO === 'SI' || pedido.REGALO === 'Sí' || pedido.REGALO === 'si';
+  const saldo = pedido.totales.saldo;
+  const hasRegalo = !!pedido.REGALO_ENVIADO && String(pedido.REGALO_ENVIADO).trim() !== '';
 
   return (
     <div className="card clickable" onClick={() => router.push(`/pedido/${encodeURIComponent(pedido.ORDEN_ID)}`)} style={{ padding: '20px 24px' }}>
@@ -44,7 +45,7 @@ export default function OrderCard({ pedido, showMoney = false }: Props) {
       <div className="hide-mobile" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 24, alignItems: 'center' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 6 }}>
-            <h3 className="display" style={{ fontSize: 20, fontWeight: 400, margin: 0 }}>{pedido.NOMBRE}</h3>
+            <h3 className="display" style={{ fontSize: 20, fontWeight: 400, margin: 0 }}>{pedido.CLIENTE_NOMBRE}</h3>
             {hasRegalo && <span style={{ color: 'var(--gold)', fontSize: 14 }}>✦</span>}
           </div>
           <div style={{ display: 'flex', gap: 12, fontSize: 12, color: 'var(--text-soft)' }}>
@@ -80,7 +81,7 @@ export default function OrderCard({ pedido, showMoney = false }: Props) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <h3 className="display" style={{ fontSize: 18, fontWeight: 400, margin: 0 }}>{pedido.NOMBRE}</h3>
+              <h3 className="display" style={{ fontSize: 18, fontWeight: 400, margin: 0 }}>{pedido.CLIENTE_NOMBRE}</h3>
               {hasRegalo && <span style={{ color: 'var(--gold)', fontSize: 14 }}>✦</span>}
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-soft)' }}>
