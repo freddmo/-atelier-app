@@ -337,7 +337,7 @@ export default function NuevoPedidoPage() {
                 </h3>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className="btn" onClick={addSet} style={{ padding: '6px 14px', fontSize: 12 }}>+ Set</button>
-                  <button className="btn" onClick={addSuelta} style={{ padding: '6px 14px', fontSize: 12 }}>+ Prenda suelta</button>
+                  <button className="btn" onClick={addSuelta} style={{ padding: '6px 14px', fontSize: 12 }}>+ Producto suelto</button>
                 </div>
               </div>
 
@@ -351,7 +351,7 @@ export default function NuevoPedidoPage() {
                     <div key={l.id} style={{ padding: 16, background: 'var(--bg)', borderRadius: 4, border: '1px solid var(--border)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                         <span style={{ fontSize: 11, fontWeight: 600, color: l.tipo === 'set' ? 'var(--gold)' : 'var(--blue)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          {l.tipo === 'set' ? '◆ Set' : '○ Prenda suelta'}
+                          {l.tipo === 'set' ? '◆ Set' : '○ Producto suelto'}
                         </span>
                         <button className="btn" onClick={() => removeLinea(l.id)} style={{ padding: '4px 10px', fontSize: 12, color: 'var(--rose)' }}>✕</button>
                       </div>
