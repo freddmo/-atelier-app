@@ -6,6 +6,16 @@ if (!API_URL) {
   console.warn('⚠️ NEXT_PUBLIC_API_URL no está configurada');
 }
 
+// Error que conserva el código HTTP/lógico que devuelve el backend
+export class ApiError extends Error {
+  code: number;
+  constructor(message: string, code: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.code = code;
+  }
+}
+
 async function apiCall<T>(params: Record<string, string>): Promise<T> {
   const url = new URL(API_URL);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
@@ -13,9 +23,9 @@ async function apiCall<T>(params: Record<string, string>): Promise<T> {
     method: 'GET',
     cache: 'no-store',
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  if (!res.ok) throw new ApiError(`HTTP ${res.status}`, res.status);
   const json = await res.json();
-  if (!json.ok) throw new Error(json.error || 'Error desconocido');
+  if (!json.ok) throw new ApiError(json.error || 'Error desconocido', json.code || 0);
   return json.data as T;
 }
 
@@ -197,8 +207,10 @@ export const api = {
   async login(usuario: string, password: string): Promise<Usuario> {
     return apiCall<Usuario>({ action: 'login', usuario, password });
   },
-  async cambiarEstado(ordenId: string, nuevoEstado: Estado, usuario: string) {
-    return apiCall({ action: 'cambiarEstado', ordenId, nuevoEstado, usuario });
+  async cambiarEstado(ordenId: string, nuevoEstado: Estado, usuario: string, forzar = false) {
+    const params: Record<string, string> = { action: 'cambiarEstado', ordenId, nuevoEstado, usuario };
+    if (forzar) params.forzar = 'true';
+    return apiCall(params);
   },
   async agregarPago(pago: NuevoPago, usuario: string) {
     return apiCall({
