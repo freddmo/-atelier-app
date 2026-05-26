@@ -20,7 +20,6 @@ function fmtDate(d: string) {
 
 function diasAtraso(p: Pedido): number | null {
   if (p.ESTATUS_ENVIO === 'ENTREGADO' || p.ESTATUS_ENVIO === 'CANCELADO' || !p.F_ENTREGA_EST) return null;
-  // F_ENTREGA_EST puede ser "POR DEFINIR" — en ese caso no calculamos atraso
   if (isNaN(Date.parse(p.F_ENTREGA_EST + 'T12:00:00'))) return null;
   const entrega = new Date(p.F_ENTREGA_EST + 'T12:00:00');
   const limite = new Date(entrega);
@@ -92,7 +91,6 @@ export default function PedidoDetallePage() {
     try {
       await intentar(false);
     } catch (err) {
-      // ¿Es el bloqueo por saldo pendiente? (código 422)
       const esBloqueoSaldo = err instanceof ApiError && err.code === 422;
 
       if (esBloqueoSaldo && isAdmin) {
@@ -112,12 +110,10 @@ export default function PedidoDetallePage() {
       }
 
       if (esBloqueoSaldo) {
-        // No es admin: bloqueo firme, mensaje claro sin opción de forzar
         alert(err.message);
         return;
       }
 
-      // Cualquier otro error
       alert('Error al cambiar estado: ' + (err instanceof Error ? err.message : 'desconocido'));
     }
   }
@@ -140,6 +136,28 @@ export default function PedidoDetallePage() {
     navigator.clipboard.writeText(text);
     setToast(message);
     setTimeout(() => setToast(''), 2500);
+  }
+
+  // ── Mensaje WhatsApp para "LISTO PARA ENVIAR" ──────────────────────────
+  function generarMensajeWhatsApp() {
+    if (!pedido) return;
+    const saldo = pedido.totales.saldo;
+
+    let mensaje = `💕 *Tu Figs te esta esperando* 💕\n\n`;
+    mensaje += `📦 Tu pedido ya esta listo para ser enviado/entregado.\n`;
+
+    if (saldo > 0.005) {
+      mensaje += `\n💰 Saldo pendiente: *$${saldo.toFixed(2)}*\n`;
+    }
+
+    mensaje += `\nRecuerda que nuestros números de cuenta son:\n\n`;
+    mensaje += `💛 Bco Pichincha #2215262086 (Mildred Zamora)\n`;
+    mensaje += `🩷 Bco Guayaquil #0050468351 (Freddy Moreno)\n`;
+    mensaje += `💳 Si deseas pago con tarjeta avísanos para enviarte el link de pago con Payphone`;
+
+    navigator.clipboard.writeText(mensaje);
+    setToast('Mensaje copiado al portapapeles 📋');
+    setTimeout(() => setToast(''), 3000);
   }
 
   if (loading) return (
@@ -185,6 +203,15 @@ export default function PedidoDetallePage() {
             <p style={{ color: 'var(--text-soft)', margin: '10px 0 0', fontSize: 14 }}>Pedido del {fmtDate(pedido.F_ORDEN)}</p>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {pedido.ESTATUS_ENVIO === 'LISTO PARA ENVIAR' && (
+              <button
+                className="btn"
+                onClick={generarMensajeWhatsApp}
+                style={{ background: '#25D366', color: 'white', border: 'none' }}
+              >
+                💬 Copiar mensaje WhatsApp
+              </button>
+            )}
             <button className="btn btn-primary" onClick={() => setShowModal(true)}>Cambiar estado</button>
           </div>
         </div>
@@ -285,7 +312,6 @@ export default function PedidoDetallePage() {
                 + Registrar pago
               </button>
 
-              {/* Lista de pagos */}
               {pedido.pagos.length > 0 && (
                 <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
                   <div style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', marginBottom: 8 }}>
