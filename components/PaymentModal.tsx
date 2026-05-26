@@ -37,6 +37,14 @@ export default function PaymentModal({ ordenId, saldoActual, onClose, onSaved }:
     setMetodo(nuevo === 'pago' ? 'Transferencia' : 'Devolución (transferencia)');
   }
 
+  function pagarTotal() {
+    if (saldoActual > 0) {
+      setMonto(saldoActual.toFixed(2));
+      setTipo('pago');
+      setMetodo('Transferencia');
+    }
+  }
+
   async function handleSave() {
     const montoNum = Number(monto);
     if (isNaN(montoNum) || montoNum <= 0) {
@@ -46,7 +54,6 @@ export default function PaymentModal({ ordenId, saldoActual, onClose, onSaved }:
     const user = auth.getUser();
     if (!user) return;
 
-    // Devolución = monto negativo
     const montoFinal = tipo === 'devolucion' ? -Math.abs(montoNum) : Math.abs(montoNum);
 
     setSubmitting(true);
@@ -75,9 +82,21 @@ export default function PaymentModal({ ordenId, saldoActual, onClose, onSaved }:
             Registrar {tipo === 'pago' ? 'pago' : 'devolución'}
           </h2>
           {saldoActual > 0 && (
-            <p style={{ color: 'var(--text-soft)', fontSize: 13, margin: '6px 0 0' }}>
-              Saldo pendiente: <strong>${saldoActual.toFixed(2)}</strong>
-            </p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+              <p style={{ color: 'var(--text-soft)', fontSize: 13, margin: 0 }}>
+                Saldo pendiente: <strong>${saldoActual.toFixed(2)}</strong>
+              </p>
+              <button
+                onClick={pagarTotal}
+                style={{
+                  background: 'var(--gold)', color: 'white', border: 'none',
+                  borderRadius: 4, padding: '5px 12px', fontSize: 12,
+                  fontWeight: 500, cursor: 'pointer', whiteSpace: 'nowrap'
+                }}
+              >
+                Pagar total
+              </button>
+            </div>
           )}
         </div>
 
