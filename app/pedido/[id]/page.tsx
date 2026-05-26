@@ -319,3 +319,84 @@ export default function PedidoDetallePage() {
                 </div>
               )}
             </div>
+          )}
+        </div>
+
+        {/* PRODUCTOS */}
+        <div className="card" style={{ padding: 28, marginBottom: 20 }}>
+          <h3 style={{ margin: '0 0 20px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
+            Productos · <span className="tabular">{totalCantidad} pieza{totalCantidad !== 1 ? 's' : ''}</span>
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {pedido.items.map((item, idx) => (
+              <div key={idx} style={{ display: 'grid', gridTemplateColumns: showMoney ? '24px 1fr auto auto auto' : '24px 1fr auto', gap: 16, alignItems: 'center', padding: 14, background: 'var(--bg)', borderRadius: 4 }}>
+                <span className="display" style={{ fontSize: 18, fontWeight: 300, color: 'var(--text-faint)' }}>{String(idx + 1).padStart(2, '0')}</span>
+                <div style={{ minWidth: 0 }}>
+                  <div className="display" style={{ fontSize: 16, fontWeight: 400, marginBottom: 4 }}>{item.NOMBRE_PRODUCTO || item.SKU}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>
+                    {item.TIPO_PRENDA} · Talla {item.TALLA} · {item.LONGITUD} · {item.COLOR}
+                    {item.PARTE_DE_SET ? ` · ${item.PARTE_DE_SET}` : ''}
+                  </div>
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-soft)' }}>×{item.CANTIDAD}</div>
+                {showMoney && (
+                  <>
+                    <div className="tabular hide-mobile" style={{ fontSize: 12, color: 'var(--text-soft)' }}>{fmtMoney(Number(item.PRECIO_VENTA))} c/u</div>
+                    <div className="display tabular" style={{ fontSize: 16, minWidth: 70, textAlign: 'right' }}>{fmtMoney(Number(item.PRECIO_VENTA) * Number(item.CANTIDAD))}</div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {hasRegalo && (
+          <div className="card" style={{ padding: '20px 28px', marginBottom: 20, borderColor: 'var(--gold)', background: 'linear-gradient(to right, rgba(184,149,78,0.04), transparent)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ fontSize: 22, color: 'var(--gold)' }}>✦</div>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--gold)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>Incluye regalo</div>
+                <div style={{ fontSize: 14 }}>{pedido.REGALO_ENVIADO}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isBodega && (
+          <div style={{ marginTop: 32, padding: 16, background: 'var(--bg)', borderRadius: 6, textAlign: 'center', fontSize: 12, color: 'var(--text-soft)' }}>
+            Algunos detalles (precios, totales) están restringidos a tu rol.
+          </div>
+        )}
+      </div>
+
+      {showModal && (
+        <StateModal
+          ordenId={pedido.ORDEN_ID}
+          estadoActual={pedido.ESTATUS_ENVIO}
+          onClose={() => setShowModal(false)}
+          onChange={handleChangeState}
+        />
+      )}
+
+      {showPayModal && (
+        <PaymentModal
+          ordenId={pedido.ORDEN_ID}
+          saldoActual={pedido.totales.saldo}
+          onClose={() => setShowPayModal(false)}
+          onSaved={() => {
+            setShowPayModal(false);
+            setToast('Pago registrado');
+            setTimeout(() => setToast(''), 2500);
+            loadPedido();
+          }}
+        />
+      )}
+
+      {toast && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: 'var(--text)', color: 'var(--surface)', padding: '12px 22px', borderRadius: 4, fontSize: 13, zIndex: 100, boxShadow: '0 10px 30px rgba(0,0,0,0.15)' }}>
+          {toast}
+        </div>
+      )}
+    </>
+  );
+}
