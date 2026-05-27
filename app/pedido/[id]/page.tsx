@@ -71,13 +71,13 @@ export default function PedidoDetallePage() {
     }
   }
 
-  async function handleChangeState(nuevo: Estado) {
+  async function handleChangeState(nuevo: Estado, tipoEmpaque?: string) {
     if (!pedido) return;
     const user = auth.getUser();
     if (!user) return;
-
+  
     async function intentar(forzar: boolean) {
-      await api.cambiarEstado(pedido!.ORDEN_ID, nuevo, user!.usuario, forzar);
+      await api.cambiarEstado(pedido!.ORDEN_ID, nuevo, user!.usuario, forzar, tipoEmpaque || '');
       setShowModal(false);
       setToast(
         forzar
@@ -87,12 +87,12 @@ export default function PedidoDetallePage() {
       setTimeout(() => setToast(''), 3000);
       loadPedido();
     }
-
+  
     try {
       await intentar(false);
     } catch (err) {
       const esBloqueoSaldo = err instanceof ApiError && err.code === 422;
-
+  
       if (esBloqueoSaldo && isAdmin) {
         const ok = confirm(
           `${err.message}\n\n` +
@@ -108,12 +108,12 @@ export default function PedidoDetallePage() {
         }
         return;
       }
-
+  
       if (esBloqueoSaldo) {
         alert(err.message);
         return;
       }
-
+  
       alert('Error al cambiar estado: ' + (err instanceof Error ? err.message : 'desconocido'));
     }
   }
