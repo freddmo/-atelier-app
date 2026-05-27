@@ -6,7 +6,6 @@ if (!API_URL) {
   console.warn('⚠️ NEXT_PUBLIC_API_URL no está configurada');
 }
 
-// Error que conserva el código HTTP/lógico que devuelve el backend
 export class ApiError extends Error {
   code: number;
   constructor(message: string, code: number) {
@@ -19,10 +18,7 @@ export class ApiError extends Error {
 async function apiCall<T>(params: Record<string, string>): Promise<T> {
   const url = new URL(API_URL);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const res = await fetch(url.toString(), {
-    method: 'GET',
-    cache: 'no-store',
-  });
+  const res = await fetch(url.toString(), { method: 'GET', cache: 'no-store' });
   if (!res.ok) throw new ApiError(`HTTP ${res.status}`, res.status);
   const json = await res.json();
   if (!json.ok) throw new ApiError(json.error || 'Error desconocido', json.code || 0);
@@ -56,6 +52,13 @@ export type SetCatalogo = {
   PRECIO_SET: number;
 };
 
+export type SetEmpaque = {
+  SET_ID: string;
+  NOMBRE_SET: string;
+  materiales: { id: string; nombre: string; costo: number }[];
+  costoTotal: number;
+};
+
 export type NuevoPedidoItem = {
   sku: string;
   talla: string;
@@ -85,7 +88,6 @@ export type CrearPedidoParams = {
   fecha: string;
 };
 
-// Item de pedido pendiente de costo (lo que devuelve getItemsPendientesCostos)
 export type ItemPendiente = {
   _rowNum: number;
   SKU: string;
@@ -99,7 +101,6 @@ export type ItemPendiente = {
   PARTE_DE_SET: string;
 };
 
-// Pedido pendiente de costo (agrupa varios ItemPendiente)
 export type PedidoPendienteCostos = {
   ORDEN_ID: string;
   CLIENTE_NOMBRE: string;
@@ -134,15 +135,11 @@ export type CargarCourierParams = {
   fecha: string;
 };
 
-// Un item de la factura al enviarla al backend
 export type ItemFacturaPayload = {
   tipoReferencia: 'PEDIDO' | 'STOCK';
-  // si PEDIDO:
   ordenId?: string;
   itemRowNum?: number;
-  // si STOCK:
   cantidad?: number;
-  // ambos:
   sku: string;
   talla: string;
   longitud: string;
@@ -193,7 +190,6 @@ export type AsignacionStock = {
   cantidad: number;
 };
 
-
 export const api = {
   async ping() {
     return apiCall<{ message: string }>({ action: 'ping' });
@@ -207,10 +203,14 @@ export const api = {
   async login(usuario: string, password: string): Promise<Usuario> {
     return apiCall<Usuario>({ action: 'login', usuario, password });
   },
-  async cambiarEstado(ordenId: string, nuevoEstado: Estado, usuario: string, forzar = false) {
+  async cambiarEstado(ordenId: string, nuevoEstado: Estado, usuario: string, forzar = false, tipoEmpaque = '') {
     const params: Record<string, string> = { action: 'cambiarEstado', ordenId, nuevoEstado, usuario };
     if (forzar) params.forzar = 'true';
+    if (tipoEmpaque) params.tipoEmpaque = tipoEmpaque;
     return apiCall(params);
+  },
+  async getSetEmpaque(): Promise<SetEmpaque[]> {
+    return apiCall<SetEmpaque[]>({ action: 'getSetEmpaque' });
   },
   async agregarPago(pago: NuevoPago, usuario: string) {
     return apiCall({
