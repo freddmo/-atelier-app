@@ -198,7 +198,6 @@ export type LoteStock = {
   TALLA: string;
   LONGITUD: string;
   COLOR: string;
-  COLOR_DISPLAY: string;
   CANT_DISPONIBLE: number;
   FECHA_ENTRADA: string;
   COSTO_UNITARIO: number;
@@ -311,14 +310,6 @@ export const api = {
       estado: params.estado,
       notas: params.notas,
       fecha: params.fecha,
-      usuario,
-    });
-  },
-  async updateColorDisplay(loteId: string, colorDisplay: string, usuario: string) {
-    return apiCall({
-      action: 'updateColorDisplay',
-      loteId,
-      colorDisplay,
       usuario,
     });
   },
