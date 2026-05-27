@@ -190,6 +190,20 @@ export type AsignacionStock = {
   cantidad: number;
 };
 
+export type LoteStock = {
+  LOTE_ID: string;
+  SKU: string;
+  NOMBRE_PRODUCTO: string;
+  TIPO_PRENDA: string;
+  TALLA: string;
+  LONGITUD: string;
+  COLOR: string;
+  CANT_DISPONIBLE: number;
+  FECHA_ENTRADA: string;
+  COSTO_UNITARIO: number;
+  tieneCourier: boolean;
+};
+
 export const api = {
   async ping() {
     return apiCall<{ message: string }>({ action: 'ping' });
@@ -277,6 +291,9 @@ export const api = {
       fecha,
       usuario,
     });
+  },
+  async getStockDisponible(): Promise<LoteStock[]> {
+    return apiCall<LoteStock[]>({ action: 'getStockDisponible' });
   },
   async getClientes(): Promise<Cliente[]> {
     return apiCall<Cliente[]>({ action: 'getClientes' });
