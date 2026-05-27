@@ -53,6 +53,7 @@ export default function Navbar() {
           </div>
           <nav className="hide-mobile" style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
             <button className={`nav-link ${isActive('/pedidos') ? 'active' : ''}`} onClick={() => router.push('/pedidos')}>Pedidos</button>
+            <button className={`nav-link ${isActive('/stock') ? 'active' : ''}`} onClick={() => router.push('/stock')}>Stock</button>
             {isAdmin && (
               <button className={`nav-link ${isActive('/nuevo-pedido') ? 'active' : ''}`} onClick={() => router.push('/nuevo-pedido')}>Nuevo pedido</button>
             )}
@@ -132,6 +133,7 @@ export default function Navbar() {
         <div className="show-mobile" style={{ borderTop: '1px solid var(--border)', padding: '16px 24px', background: 'var(--bg)' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <button className={`nav-link ${isActive('/pedidos') ? 'active' : ''}`} onClick={() => { router.push('/pedidos'); setMobileOpen(false); }}>Pedidos</button>
+            <button className={`nav-link ${isActive('/stock') ? 'active' : ''}`} onClick={() => { router.push('/stock'); setMobileOpen(false); }}>Stock</button>
             {isAdmin && (
               <button className={`nav-link ${isActive('/nuevo-pedido') ? 'active' : ''}`} onClick={() => { router.push('/nuevo-pedido'); setMobileOpen(false); }}>Nuevo pedido</button>
             )}
