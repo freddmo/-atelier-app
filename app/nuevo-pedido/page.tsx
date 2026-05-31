@@ -13,7 +13,6 @@ function fmtMoney(n: number) {
 
 const LONGITUDES = ['Regular', 'Petite', 'Tall'];
 
-// Reparto Regla B: mitad redondeada, el sobrante va al top
 function repartirSet(precio: number): { top: number; pant: number } {
   const mitad = precio / 2;
   const top = Math.ceil(mitad * 100) / 100;
@@ -21,11 +20,9 @@ function repartirSet(precio: number): { top: number; pant: number } {
   return { top, pant };
 }
 
-// Línea de producto en el formulario (set, suelta o stock)
 type LineaProducto = {
   id: number;
   tipo: 'set' | 'suelta' | 'stock';
-  // si set:
   setNombre?: string;
   skuTop?: string;
   skuPant?: string;
@@ -33,14 +30,11 @@ type LineaProducto = {
   tallaPant: string;
   longitud: string;
   color: string;
-  // si suelta o stock:
   sku?: string;
   talla: string;
   cantidad: number;
-  // si stock:
   loteId?: string;
   costoLote?: number;
-  // precios calculados
   precioLista: number;
 };
 
@@ -54,21 +48,16 @@ export default function NuevoPedidoPage() {
   const [stockLotes, setStockLotes] = useState<LoteStock[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Cliente
   const [clienteEsNuevo, setClienteEsNuevo] = useState(false);
   const [clienteBusqueda, setClienteBusqueda] = useState('');
   const [clienteSel, setClienteSel] = useState<Cliente | null>(null);
   const [nuevoCliente, setNuevoCliente] = useState({
     nombre: '', telefono: '', direccion: '', ciudad: '', cedulaRuc: '', industria: '', email: '',
   });
+  const [guardandoCliente, setGuardandoCliente] = useState(false);
 
-  // Productos
   const [lineas, setLineas] = useState<LineaProducto[]>([]);
-
-  // Precio negociado / descuento
   const [precioNegociado, setPrecioNegociado] = useState('');
-
-  // Otros
   const [notas, setNotas] = useState('');
   const [fecha, setFecha] = useState(today);
 
@@ -106,6 +95,26 @@ export default function NuevoPedidoPage() {
   const clientesFiltrados = clienteBusqueda.trim()
     ? clientes.filter(c => c.NOMBRE.toLowerCase().includes(clienteBusqueda.toLowerCase()))
     : [];
+
+  async function handleGuardarCliente() {
+    if (!nuevoCliente.nombre.trim()) { alert('Escribe el nombre del cliente'); return; }
+    const user = auth.getUser();
+    if (!user) return;
+    setGuardandoCliente(true);
+    try {
+      const creado = await api.crearCliente({ ...nuevoCliente }, fecha, user.usuario);
+      setClientes(prev => [...prev, creado]);
+      setClienteSel(creado);
+      setClienteEsNuevo(false);
+      setNuevoCliente({ nombre: '', telefono: '', direccion: '', ciudad: '', cedulaRuc: '', industria: '', email: '' });
+      setToast(`✅ Cliente ${creado.CLIENTE_ID} guardado`);
+      setTimeout(() => setToast(''), 3000);
+    } catch (err) {
+      alert('Error al guardar cliente: ' + (err instanceof Error ? err.message : 'desconocido'));
+    } finally {
+      setGuardandoCliente(false);
+    }
+  }
 
   // ===== PRODUCTOS =====
   function addSet() {
@@ -149,7 +158,6 @@ export default function NuevoPedidoPage() {
     setLineas(lineas.map(l => {
       if (l.id !== id) return l;
       const updated = { ...l, [campo]: valor };
-      // Si cambió el set, actualizar SKUs y precio
       if (campo === 'setNombre') {
         const s = sets.find(x => x.SET_NOMBRE === valor);
         if (s) {
@@ -158,7 +166,6 @@ export default function NuevoPedidoPage() {
           updated.precioLista = s.PRECIO_SET;
         }
       }
-      // Si eligió un lote de stock, rellenar sus datos
       if (campo === 'loteId') {
         const lote = stockLotes.find(x => x.LOTE_ID === valor);
         if (lote) {
@@ -229,7 +236,7 @@ export default function NuevoPedidoPage() {
           color: l.color.trim(), cantidad: l.cantidad, precioVenta: l.precioLista, parteDeSet: '',
           origen: 'PEDIDO',
         });
-      } else { // stock
+      } else {
         if (!l.loteId || !l.sku || l.cantidad <= 0 || l.precioLista <= 0) {
           alert('Hay una prenda de stock sin lote seleccionado o sin precio');
           return;
@@ -337,34 +344,50 @@ export default function NuevoPedidoPage() {
                   )}
                 </div>
               ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Nombre *</label>
-                    <input className="input" value={nuevoCliente.nombre} onChange={(e) => setNuevoCliente({ ...nuevoCliente, nombre: e.target.value })} style={{ marginTop: 4 }} />
+                <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Nombre *</label>
+                      <input className="input" value={nuevoCliente.nombre} onChange={(e) => setNuevoCliente({ ...nuevoCliente, nombre: e.target.value })} style={{ marginTop: 4 }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Teléfono</label>
+                      <input className="input" value={nuevoCliente.telefono} onChange={(e) => setNuevoCliente({ ...nuevoCliente, telefono: e.target.value })} style={{ marginTop: 4 }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Dirección</label>
+                      <input className="input" value={nuevoCliente.direccion} onChange={(e) => setNuevoCliente({ ...nuevoCliente, direccion: e.target.value })} style={{ marginTop: 4 }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Ciudad</label>
+                      <input className="input" value={nuevoCliente.ciudad} onChange={(e) => setNuevoCliente({ ...nuevoCliente, ciudad: e.target.value })} style={{ marginTop: 4 }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Cédula / RUC</label>
+                      <input className="input" value={nuevoCliente.cedulaRuc} onChange={(e) => setNuevoCliente({ ...nuevoCliente, cedulaRuc: e.target.value })} style={{ marginTop: 4 }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Industria</label>
+                      <input className="input" value={nuevoCliente.industria} onChange={(e) => setNuevoCliente({ ...nuevoCliente, industria: e.target.value })} style={{ marginTop: 4 }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Email</label>
+                      <input className="input" value={nuevoCliente.email} onChange={(e) => setNuevoCliente({ ...nuevoCliente, email: e.target.value })} style={{ marginTop: 4 }} />
+                    </div>
                   </div>
-                  <div>
-                    <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Teléfono</label>
-                    <input className="input" value={nuevoCliente.telefono} onChange={(e) => setNuevoCliente({ ...nuevoCliente, telefono: e.target.value })} style={{ marginTop: 4 }} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Dirección</label>
-                    <input className="input" value={nuevoCliente.direccion} onChange={(e) => setNuevoCliente({ ...nuevoCliente, direccion: e.target.value })} style={{ marginTop: 4 }} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Ciudad</label>
-                    <input className="input" value={nuevoCliente.ciudad} onChange={(e) => setNuevoCliente({ ...nuevoCliente, ciudad: e.target.value })} style={{ marginTop: 4 }} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Cédula / RUC</label>
-                    <input className="input" value={nuevoCliente.cedulaRuc} onChange={(e) => setNuevoCliente({ ...nuevoCliente, cedulaRuc: e.target.value })} style={{ marginTop: 4 }} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Industria</label>
-                    <input className="input" value={nuevoCliente.industria} onChange={(e) => setNuevoCliente({ ...nuevoCliente, industria: e.target.value })} style={{ marginTop: 4 }} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Email</label>
-                    <input className="input" value={nuevoCliente.email} onChange={(e) => setNuevoCliente({ ...nuevoCliente, email: e.target.value })} style={{ marginTop: 4 }} />
+
+                  <div style={{ marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>
+                      Puedes guardarlo ahora en la base de clientes, o se creará solo al crear el pedido.
+                    </span>
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleGuardarCliente}
+                      disabled={guardandoCliente || !nuevoCliente.nombre.trim()}
+                      style={{ whiteSpace: 'nowrap' }}
+                    >
+                      {guardandoCliente ? 'Guardando…' : 'Guardar cliente'}
+                    </button>
                   </div>
                 </div>
               )}
@@ -457,7 +480,6 @@ export default function NuevoPedidoPage() {
                           </div>
                         </div>
                       ) : (
-                        // ── STOCK ──
                         <div>
                           <div style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.6fr 1fr', gap: 10, alignItems: 'end' }}>
                             <div>
