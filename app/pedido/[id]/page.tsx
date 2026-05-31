@@ -235,28 +235,81 @@ export default function PedidoDetallePage() {
             <h3 style={{ margin: 0, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Recorrido del envío</h3>
             <span className={`pill ${stateClass(pedido.ESTATUS_ENVIO)}`} style={{ padding: '6px 14px', fontSize: 12 }}>{pedido.ESTATUS_ENVIO}</span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '8px 0' }}>
-            {ESTADOS.map((s, i) => {
-              const isDone = i < currentIdx;
-              const isCurrent = i === currentIdx;
+
+          {(() => {
+            // Estado efectivo de cada ítem (con fallback a la cabecera)
+            const estados = pedido!.items.map(it => estadoDeItem(it));
+            const unicos = Array.from(new Set(estados));
+            const esMixto = unicos.length > 1;
+
+            // ── Pedido normal: barra de tiempo ──
+            if (!esMixto) {
+              const idx = ESTADOS.indexOf(unicos[0] || pedido!.ESTATUS_ENVIO);
               return (
-                <div key={s} style={{ display: 'flex', alignItems: 'center', flex: i === ESTADOS.length - 1 ? '0 0 auto' : '1' }}>
-                  <div className={`stepper-dot ${isDone ? 'done' : isCurrent ? 'current' : ''}`} />
-                  {i < ESTADOS.length - 1 && <div className={`stepper-line ${isDone ? 'done' : ''}`} />}
-                </div>
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '8px 0' }}>
+                    {ESTADOS.map((s, i) => {
+                      const isDone = i < idx;
+                      const isCurrent = i === idx;
+                      return (
+                        <div key={s} style={{ display: 'flex', alignItems: 'center', flex: i === ESTADOS.length - 1 ? '0 0 auto' : '1' }}>
+                          <div className={`stepper-dot ${isDone ? 'done' : isCurrent ? 'current' : ''}`} />
+                          {i < ESTADOS.length - 1 && <div className={`stepper-line ${isDone ? 'done' : ''}`} />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+                    {ESTADOS.map((s, i) => {
+                      const isCurrent = i === idx;
+                      return (
+                        <div key={s} style={{ flex: 1, textAlign: 'center', fontSize: 9, color: isCurrent ? 'var(--text)' : 'var(--text-faint)', fontWeight: isCurrent ? 500 : 400, padding: '0 2px', maxWidth: 90 }}>
+                          {s}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
               );
-            })}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
-            {ESTADOS.map((s, i) => {
-              const isCurrent = i === currentIdx;
-              return (
-                <div key={s} style={{ flex: 1, textAlign: 'center', fontSize: 9, color: isCurrent ? 'var(--text)' : 'var(--text-faint)', fontWeight: isCurrent ? 500 : 400, padding: '0 2px', maxWidth: 90 }}>
-                  {s}
+            }
+
+            // ── Pedido mixto: resumen por grupo ──
+            const grupos: Record<string, any[]> = {};
+            pedido!.items.forEach(it => {
+              const e = estadoDeItem(it);
+              (grupos[e] = grupos[e] || []).push(it);
+            });
+            const ordenados = Object.keys(grupos).sort((a, b) => ESTADOS.indexOf(a) - ESTADOS.indexOf(b));
+
+            return (
+              <div>
+                <div style={{ fontSize: 12, color: 'var(--text-soft)', marginBottom: 14 }}>
+                  Pedido mixto — cada parte va por separado:
                 </div>
-              );
-            })}
-          </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {ordenados.map(estado => {
+                    const items = grupos[estado];
+                    const entregado = items.every(it => itemEntregado(it));
+                    return (
+                      <div key={estado} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', padding: 14, background: 'var(--bg)', borderRadius: 4, borderLeft: `3px solid ${entregado ? 'var(--green)' : 'var(--gold)'}` }}>
+                        <span className={`pill ${stateClass(estado)}`} style={{ fontSize: 11, padding: '4px 10px', whiteSpace: 'nowrap' }}>
+                          {entregado ? '✓ ' : ''}{estado}
+                        </span>
+                        <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.5 }}>
+                          {items.map((it, i) => (
+                            <div key={i}>
+                              {it.NOMBRE_PRODUCTO || it.SKU}{' '}
+                              <span style={{ color: 'var(--text-faint)', fontSize: 11 }}>({it.TALLA} · {it.COLOR})</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
 
         {/* INFO GRID */}
