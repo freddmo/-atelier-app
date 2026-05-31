@@ -2,72 +2,97 @@
 
 import { useState, useEffect } from 'react';
 import { ESTADOS, Estado } from '@/lib/types';
-import { api, SetEmpaque } from '@/lib/api';
+import { api, SetEmpaque, Regalo } from '@/lib/api';
 
 type Props = {
   ordenId: string;
   estadoActual: Estado;
   onClose: () => void;
-  onChange: (nuevo: Estado, tipoEmpaque?: string) => Promise<void>;
+  onChange: (nuevo: Estado, tipoEmpaque?: string, pines?: { regaloid: string; cantidad: number }[]) => Promise<void>;
+};
+
+type PinSeleccionado = {
+  regaloid: string;
+  nombre: string;
+  cantidad: number;
 };
 
 export default function StateModal({ ordenId, estadoActual, onClose, onChange }: Props) {
   const currentIdx = ESTADOS.indexOf(estadoActual);
   const [setsEmpaque, setSetsEmpaque] = useState<SetEmpaque[]>([]);
+  const [regalos, setRegalos] = useState<Regalo[]>([]);
   const [empaqueSeleccionado, setEmpaqueSeleccionado] = useState('');
-  const [esperandoEmpaque, setEsperandoEmpaque] = useState(false);
+  const [paso, setPaso] = useState<'estados' | 'empaque' | 'pines'>('estados');
   const [estadoPendiente, setEstadoPendiente] = useState<Estado | null>(null);
-  const [loadingEmpaque, setLoadingEmpaque] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // Pin selección
+  const [pinPrincipal, setPinPrincipal] = useState('');
+  const [pinExtra, setPinExtra] = useState('');
+  const [agregarExtra, setAgregarExtra] = useState(false);
 
   useEffect(() => {
-    api.getSetEmpaque().then(setSetsEmpaque).catch(() => {});
+    Promise.all([api.getSetEmpaque(), api.getRegalos()])
+      .then(([sets, regs]) => {
+        setSetsEmpaque(sets);
+        setRegalos(regs);
+        if (sets.length > 0) setEmpaqueSeleccionado(sets[0].SET_ID);
+        if (regs.length > 0) setPinPrincipal(regs[0].REGALO_ID);
+      })
+      .catch(() => {});
   }, []);
 
   async function handleClick(s: Estado, isCurrent: boolean, isPast: boolean) {
     if (isCurrent) return;
-
     if (isPast) {
-      const ok = confirm(
-        `¿Estás seguro de regresar el estado a "${s}"?\n\nEsto significa que el pedido va a retroceder en el flujo.`
-      );
+      const ok = confirm(`¿Estás seguro de regresar el estado a "${s}"?\n\nEsto significa que el pedido va a retroceder en el flujo.`);
       if (!ok) return;
     }
-
-    // Si es LISTO PARA ENVIAR, pedir empaque primero
     if (s === 'LISTO PARA ENVIAR') {
       setEstadoPendiente(s);
-      setEmpaqueSeleccionado(setsEmpaque[0]?.SET_ID || '');
-      setEsperandoEmpaque(true);
+      setPaso('empaque');
       return;
     }
-
     await onChange(s);
   }
 
   async function confirmarConEmpaque() {
-    if (!estadoPendiente || !empaqueSeleccionado) return;
-    setLoadingEmpaque(true);
+    if (!empaqueSeleccionado) return;
+    setPaso('pines');
+  }
+
+  async function confirmarConPines() {
+    if (!estadoPendiente || !pinPrincipal) return;
+    setLoading(true);
     try {
-      await onChange(estadoPendiente, empaqueSeleccionado);
+      const pines: { regaloid: string; cantidad: number }[] = [];
+      const pinPrincipalObj = regalos.find(r => r.REGALO_ID === pinPrincipal);
+      if (pinPrincipalObj) pines.push({ regaloid: pinPrincipal, cantidad: 1 });
+      if (agregarExtra && pinExtra) {
+        const pinExtraObj = regalos.find(r => r.REGALO_ID === pinExtra);
+        if (pinExtraObj) {
+          // Si es el mismo pin, suma la cantidad
+          const existente = pines.find(p => p.regaloid === pinExtra);
+          if (existente) existente.cantidad += 1;
+          else pines.push({ regaloid: pinExtra, cantidad: 1 });
+        }
+      }
+      await onChange(estadoPendiente, empaqueSeleccionado, pines);
     } finally {
-      setLoadingEmpaque(false);
+      setLoading(false);
     }
   }
 
-  // ── Pantalla de selección de empaque ──────────────────────────────────────
-  if (esperandoEmpaque) {
+  // ── Paso: selección de empaque ────────────────────────────────────────────
+  if (paso === 'empaque') {
     const setElegido = setsEmpaque.find(s => s.SET_ID === empaqueSeleccionado);
     return (
       <div className="modal-bg" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
         <div className="modal-content" style={{ padding: 28, maxWidth: 420 }}>
           <div style={{ marginBottom: 20 }}>
             <span className="number-tag">{ordenId}</span>
-            <h2 className="display" style={{ fontSize: 24, fontWeight: 400, margin: '6px 0 0' }}>
-              Seleccionar empaque
-            </h2>
-            <p style={{ color: 'var(--text-soft)', fontSize: 13, margin: '6px 0 0' }}>
-              Elige el tipo de empaque para este pedido
-            </p>
+            <h2 className="display" style={{ fontSize: 24, fontWeight: 400, margin: '6px 0 0' }}>Seleccionar empaque</h2>
+            <p style={{ color: 'var(--text-soft)', fontSize: 13, margin: '6px 0 0' }}>Paso 1 de 2</p>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
@@ -76,21 +101,15 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
                 key={s.SET_ID}
                 onClick={() => setEmpaqueSeleccionado(s.SET_ID)}
                 style={{
-                  padding: '14px 16px',
-                  borderRadius: 4,
-                  cursor: 'pointer',
+                  padding: '14px 16px', borderRadius: 4, cursor: 'pointer',
                   border: `1px solid ${empaqueSeleccionado === s.SET_ID ? 'var(--text)' : 'var(--border)'}`,
                   background: empaqueSeleccionado === s.SET_ID ? 'var(--bg)' : 'transparent',
                   transition: 'all 0.15s',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                  <span style={{ fontSize: 14, fontWeight: empaqueSeleccionado === s.SET_ID ? 500 : 400 }}>
-                    {s.NOMBRE_SET}
-                  </span>
-                  <span className="tabular" style={{ fontSize: 14, color: 'var(--text-soft)' }}>
-                    ${s.costoTotal.toFixed(2)}
-                  </span>
+                  <span style={{ fontSize: 14, fontWeight: empaqueSeleccionado === s.SET_ID ? 500 : 400 }}>{s.NOMBRE_SET}</span>
+                  <span className="tabular" style={{ fontSize: 14, color: 'var(--text-soft)' }}>${s.costoTotal.toFixed(2)}</span>
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 4 }}>
                   {s.materiales.map(m => m.nombre).join(' · ')}
@@ -101,9 +120,6 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
 
           {setElegido && (
             <div style={{ background: 'var(--bg)', padding: '12px 14px', borderRadius: 4, marginBottom: 16 }}>
-              <div style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', marginBottom: 8 }}>
-                Detalle del empaque
-              </div>
               {setElegido.materiales.map(m => (
                 <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '3px 0' }}>
                   <span style={{ color: 'var(--text-soft)' }}>{m.nombre}</span>
@@ -118,21 +134,109 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
           )}
 
           <div style={{ display: 'flex', gap: 10 }}>
-            <button
-              className="btn"
-              style={{ flex: 1, justifyContent: 'center' }}
-              onClick={() => setEsperandoEmpaque(false)}
-              disabled={loadingEmpaque}
-            >
-              ← Volver
+            <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setPaso('estados')}>← Volver</button>
+            <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={confirmarConEmpaque} disabled={!empaqueSeleccionado}>
+              Siguiente →
             </button>
-            <button
-              className="btn btn-primary"
-              style={{ flex: 1, justifyContent: 'center' }}
-              onClick={confirmarConEmpaque}
-              disabled={!empaqueSeleccionado || loadingEmpaque}
-            >
-              {loadingEmpaque ? 'Guardando…' : 'Confirmar →'}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Paso: selección de pin ────────────────────────────────────────────────
+  if (paso === 'pines') {
+    const pinPrincipalObj = regalos.find(r => r.REGALO_ID === pinPrincipal);
+    const pinExtraObj     = regalos.find(r => r.REGALO_ID === pinExtra);
+    const costoPines = (pinPrincipalObj ? pinPrincipalObj.COSTO_UNITARIO : 0) +
+                       (agregarExtra && pinExtraObj ? pinExtraObj.COSTO_UNITARIO : 0);
+
+    return (
+      <div className="modal-bg" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="modal-content" style={{ padding: 28, maxWidth: 420 }}>
+          <div style={{ marginBottom: 20 }}>
+            <span className="number-tag">{ordenId}</span>
+            <h2 className="display" style={{ fontSize: 24, fontWeight: 400, margin: '6px 0 0' }}>Seleccionar pin</h2>
+            <p style={{ color: 'var(--text-soft)', fontSize: 13, margin: '6px 0 0' }}>Paso 2 de 2</p>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 20 }}>
+            {/* Pin principal */}
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Pin principal (×1)</label>
+              <select
+                className="input"
+                value={pinPrincipal}
+                onChange={(e) => setPinPrincipal(e.target.value)}
+                style={{ marginTop: 4 }}
+              >
+                {regalos.map(r => (
+                  <option key={r.REGALO_ID} value={r.REGALO_ID}>
+                    {r.NOMBRE} · stock: {r.STOCK}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Pin extra */}
+            <div>
+              <div
+                onClick={() => {
+                  setAgregarExtra(!agregarExtra);
+                  if (!pinExtra && regalos.length > 0) setPinExtra(regalos[0].REGALO_ID);
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: agregarExtra ? 8 : 0 }}
+              >
+                <div style={{
+                  width: 18, height: 18, borderRadius: 3, border: '1px solid var(--border)',
+                  background: agregarExtra ? 'var(--text)' : 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                }}>
+                  {agregarExtra && <span style={{ color: 'var(--surface)', fontSize: 11, lineHeight: 1 }}>✓</span>}
+                </div>
+                <span style={{ fontSize: 13 }}>Agregar pin extra (×1)</span>
+              </div>
+              {agregarExtra && (
+                <select
+                  className="input"
+                  value={pinExtra}
+                  onChange={(e) => setPinExtra(e.target.value)}
+                >
+                  {regalos.map(r => (
+                    <option key={r.REGALO_ID} value={r.REGALO_ID}>
+                      {r.NOMBRE} · stock: {r.STOCK}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          </div>
+
+          {/* Resumen */}
+          <div style={{ background: 'var(--bg)', padding: '12px 14px', borderRadius: 4, marginBottom: 16 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', marginBottom: 8 }}>Resumen</div>
+            {pinPrincipalObj && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '3px 0' }}>
+                <span style={{ color: 'var(--text-soft)' }}>{pinPrincipalObj.NOMBRE} ×1</span>
+                <span className="tabular">${pinPrincipalObj.COSTO_UNITARIO.toFixed(2)}</span>
+              </div>
+            )}
+            {agregarExtra && pinExtraObj && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '3px 0' }}>
+                <span style={{ color: 'var(--text-soft)' }}>{pinExtraObj.NOMBRE} ×1 (extra)</span>
+                <span className="tabular">${pinExtraObj.COSTO_UNITARIO.toFixed(2)}</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 500, paddingTop: 8, marginTop: 4, borderTop: '1px solid var(--border)' }}>
+              <span>Total pines</span>
+              <span className="tabular">${costoPines.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setPaso('empaque')} disabled={loading}>← Volver</button>
+            <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={confirmarConPines} disabled={!pinPrincipal || loading}>
+              {loading ? 'Guardando…' : 'Confirmar ✓'}
             </button>
           </div>
         </div>
@@ -157,7 +261,6 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
             const isCurrent = s === estadoActual;
             const isPast    = i < currentIdx;
             const isNext    = i === currentIdx + 1;
-
             let borderColor = 'var(--border)';
             if (isNext) borderColor = 'var(--text)';
             else if (isPast) borderColor = 'var(--amber)';
@@ -194,7 +297,7 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
           ✓ Se actualizará en Google Sheets<br />
           ✓ Quedará registrado con fecha y usuario<br />
           ⚠️ Si regresas el estado, pedirá confirmación<br />
-          📦 Si es "LISTO PARA ENVIAR", pedirá el tipo de empaque
+          📦 Si es "LISTO PARA ENVIAR", pedirá empaque y pin
         </div>
 
         <button className="btn" style={{ width: '100%', justifyContent: 'center' }} onClick={onClose}>Cancelar</button>
