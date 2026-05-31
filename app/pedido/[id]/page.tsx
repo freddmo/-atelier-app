@@ -335,12 +335,12 @@ export default function PedidoDetallePage() {
                 <div style={{ fontSize: 14 }}>{pedido.METODO_ENVIO || '—'}</div>
               </div>
             </div>
-            {pedido.cliente?.INDUSTRIA && (
-              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
-                <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 6 }}>INDUSTRIA (para elegir pin)</div>
-                <div style={{ fontSize: 14 }}>{pedido.cliente.INDUSTRIA}</div>
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 6 }}>INDUSTRIA (para elegir pin)</div>
+              <div style={{ fontSize: 14, color: pedido.cliente?.INDUSTRIA ? 'var(--text)' : 'var(--text-faint)' }}>
+                {pedido.cliente?.INDUSTRIA || 'No especificada'}
               </div>
-            )}
+            </div>
             {pedido.NOTAS && (
               <div style={{ marginTop: 20, padding: 14, background: 'var(--bg)', borderRadius: 4, borderLeft: '2px solid var(--gold)' }}>
                 <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 4 }}>NOTAS</div>
