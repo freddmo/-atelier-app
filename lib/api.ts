@@ -219,6 +219,12 @@ export const api = {
   async login(usuario: string, password: string): Promise<Usuario> {
     return apiCall<Usuario>({ action: 'login', usuario, password });
   },
+  async cambiarEstado(ordenId: string, nuevoEstado: Estado, usuario: string, forzar = false, tipoEmpaque = '') {
+    const params: Record<string, string> = { action: 'cambiarEstado', ordenId, nuevoEstado, usuario };
+    if (forzar) params.forzar = 'true';
+    if (tipoEmpaque) params.tipoEmpaque = tipoEmpaque;
+    return apiCall(params);
+  },
   async cambiarEstadoItems(
     ordenId: string,
     itemRows: number[],
