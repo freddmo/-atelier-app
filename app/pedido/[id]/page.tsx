@@ -73,52 +73,58 @@ export default function PedidoDetallePage() {
     }
   }
 
-  async function handleChangeState(nuevo: Estado, tipoEmpaque?: string) {
-    if (!pedido) return;
-    const user = auth.getUser();
-    if (!user) return;
+  async function handleChangeState(nuevo: Estado, tipoEmpaque?: string, pines?: { regaloid: string; cantidad: number }[]) {
+  if (!pedido) return;
+  const user = auth.getUser();
+  if (!user) return;
 
-    async function intentar(forzar: boolean) {
-      await api.cambiarEstado(pedido!.ORDEN_ID, nuevo, user!.usuario, forzar, tipoEmpaque || '');
-      setShowModal(false);
-      setToast(
-        forzar
-          ? `Estado cambiado a "${nuevo}" (forzado con saldo pendiente)`
-          : `Estado actualizado a "${nuevo}"`
-      );
-      setTimeout(() => setToast(''), 3000);
-      loadPedido();
-    }
-
-    try {
-      await intentar(false);
-    } catch (err) {
-      const esBloqueoSaldo = err instanceof ApiError && err.code === 422;
-
-      if (esBloqueoSaldo && isAdmin) {
-        const ok = confirm(
-          `${err.message}\n\n` +
-          `Eres admin, así que puedes forzar el envío. ` +
-          `Quedará registrado en el log que se envió con saldo pendiente.\n\n` +
-          `¿Enviar de todas formas?`
-        );
-        if (!ok) return;
-        try {
-          await intentar(true);
-        } catch (err2) {
-          alert('Error al forzar el cambio: ' + (err2 instanceof Error ? err2.message : 'desconocido'));
-        }
-        return;
-      }
-
-      if (esBloqueoSaldo) {
-        alert(err.message);
-        return;
-      }
-
-      alert('Error al cambiar estado: ' + (err instanceof Error ? err.message : 'desconocido'));
-    }
+  async function intentar(forzar: boolean) {
+    await api.cambiarEstadoItems(
+      pedido!.ORDEN_ID,
+      pedido!.items.map((i: any) => i._rowNum),
+      nuevo,
+      user!.usuario,
+      { forzar, tipoEmpaque, pines }
+    );
+    setShowModal(false);
+    setToast(
+      forzar
+        ? `Estado cambiado a "${nuevo}" (forzado con saldo pendiente)`
+        : `Estado actualizado a "${nuevo}"`
+    );
+    setTimeout(() => setToast(''), 3000);
+    loadPedido();
   }
+
+  try {
+    await intentar(false);
+  } catch (err) {
+    const esBloqueoSaldo = err instanceof ApiError && err.code === 422;
+
+    if (esBloqueoSaldo && isAdmin) {
+      const ok = confirm(
+        `${err.message}\n\n` +
+        `Eres admin, así que puedes forzar el envío. ` +
+        `Quedará registrado en el log.\n\n` +
+        `¿Enviar de todas formas?`
+      );
+      if (!ok) return;
+      try {
+        await intentar(true);
+      } catch (err2) {
+        alert('Error al forzar el cambio: ' + (err2 instanceof Error ? err2.message : 'desconocido'));
+      }
+      return;
+    }
+
+    if (esBloqueoSaldo) {
+      alert(err.message);
+      return;
+    }
+
+    alert('Error al cambiar estado: ' + (err instanceof Error ? err.message : 'desconocido'));
+  }
+}
 
   async function handleBorrarPago(ordenIdPago: string, fecha: string, monto: number) {
     if (!confirm(`¿Borrar este movimiento de ${fmtMoney(Math.abs(monto))}?`)) return;
