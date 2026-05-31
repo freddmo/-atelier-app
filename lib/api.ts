@@ -192,6 +192,15 @@ export type AsignacionStock = {
   cantidad: number;
 };
 
+export type Regalo = {
+  REGALO_ID: string;
+  NOMBRE: string;
+  INDUSTRIA_SUGERIDA: string;
+  STOCK: number;
+  STOCK_MINIMO: number;
+  COSTO_UNITARIO: number;
+};
+
 export type LoteStock = {
   LOTE_ID: string;
   SKU: string;
@@ -215,6 +224,9 @@ export const api = {
   },
   async getPedido(id: string): Promise<Pedido> {
     return apiCall<Pedido>({ action: 'getPedido', id });
+  },
+  async getRegalos(): Promise<Regalo[]> {
+    return apiCall<Regalo[]>({ action: 'getRegalos' });
   },
   async login(usuario: string, password: string): Promise<Usuario> {
     return apiCall<Usuario>({ action: 'login', usuario, password });
