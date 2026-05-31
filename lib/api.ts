@@ -237,12 +237,12 @@ export const api = {
     if (tipoEmpaque) params.tipoEmpaque = tipoEmpaque;
     return apiCall(params);
   },
-  async cambiarEstadoItems(
+    async cambiarEstadoItems(
     ordenId: string,
     itemRows: number[],
     nuevoEstado: string,
     usuario: string,
-    opts: { forzar?: boolean; tipoEmpaque?: string; costoDelivery?: number } = {}
+    opts: { forzar?: boolean; tipoEmpaque?: string; costoDelivery?: number; pines?: { regaloid: string; cantidad: number }[] } = {}
   ) {
     const params: Record<string, string> = {
       action: 'cambiarEstadoItems',
@@ -251,6 +251,12 @@ export const api = {
       nuevoEstado,
       usuario,
     };
+    if (opts.forzar) params.forzar = 'true';
+    if (opts.tipoEmpaque) params.tipoEmpaque = opts.tipoEmpaque;
+    if (opts.costoDelivery) params.costoDelivery = String(opts.costoDelivery);
+    if (opts.pines && opts.pines.length > 0) params.pines = JSON.stringify(opts.pines);
+    return apiCall(params);
+  },
     if (opts.forzar) params.forzar = 'true';
     if (opts.tipoEmpaque) params.tipoEmpaque = opts.tipoEmpaque;
     if (opts.costoDelivery && opts.costoDelivery > 0) params.costoDelivery = String(opts.costoDelivery);
