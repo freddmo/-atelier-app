@@ -219,10 +219,23 @@ export const api = {
   async login(usuario: string, password: string): Promise<Usuario> {
     return apiCall<Usuario>({ action: 'login', usuario, password });
   },
-  async cambiarEstado(ordenId: string, nuevoEstado: Estado, usuario: string, forzar = false, tipoEmpaque = '') {
-    const params: Record<string, string> = { action: 'cambiarEstado', ordenId, nuevoEstado, usuario };
-    if (forzar) params.forzar = 'true';
-    if (tipoEmpaque) params.tipoEmpaque = tipoEmpaque;
+  async cambiarEstadoItems(
+    ordenId: string,
+    itemRows: number[],
+    nuevoEstado: string,
+    usuario: string,
+    opts: { forzar?: boolean; tipoEmpaque?: string; costoDelivery?: number } = {}
+  ) {
+    const params: Record<string, string> = {
+      action: 'cambiarEstadoItems',
+      ordenId,
+      itemRows: JSON.stringify(itemRows),
+      nuevoEstado,
+      usuario,
+    };
+    if (opts.forzar) params.forzar = 'true';
+    if (opts.tipoEmpaque) params.tipoEmpaque = opts.tipoEmpaque;
+    if (opts.costoDelivery && opts.costoDelivery > 0) params.costoDelivery = String(opts.costoDelivery);
     return apiCall(params);
   },
   async getSetEmpaque(): Promise<SetEmpaque[]> {
