@@ -8,6 +8,7 @@ import { Pedido, Estado, ESTADOS } from '@/lib/types';
 import Navbar from '@/components/Navbar';
 import StateModal from '@/components/StateModal';
 import PaymentModal from '@/components/PaymentModal';
+import ItemsStateModal from '@/components/ItemsStateModal';
 
 function fmtMoney(n: number) {
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -42,6 +43,7 @@ export default function PedidoDetallePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [showItemsModal, setShowItemsModal] = useState(false);
   const [toast, setToast] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
   const [isBodega, setIsBodega] = useState(false);
@@ -75,7 +77,7 @@ export default function PedidoDetallePage() {
     if (!pedido) return;
     const user = auth.getUser();
     if (!user) return;
-  
+
     async function intentar(forzar: boolean) {
       await api.cambiarEstado(pedido!.ORDEN_ID, nuevo, user!.usuario, forzar, tipoEmpaque || '');
       setShowModal(false);
@@ -87,12 +89,12 @@ export default function PedidoDetallePage() {
       setTimeout(() => setToast(''), 3000);
       loadPedido();
     }
-  
+
     try {
       await intentar(false);
     } catch (err) {
       const esBloqueoSaldo = err instanceof ApiError && err.code === 422;
-  
+
       if (esBloqueoSaldo && isAdmin) {
         const ok = confirm(
           `${err.message}\n\n` +
@@ -108,12 +110,12 @@ export default function PedidoDetallePage() {
         }
         return;
       }
-  
+
       if (esBloqueoSaldo) {
         alert(err.message);
         return;
       }
-  
+
       alert('Error al cambiar estado: ' + (err instanceof Error ? err.message : 'desconocido'));
     }
   }
@@ -138,7 +140,6 @@ export default function PedidoDetallePage() {
     setTimeout(() => setToast(''), 2500);
   }
 
-  // ── Mensaje WhatsApp para "LISTO PARA ENVIAR" ──────────────────────────
   function generarMensajeWhatsApp() {
     if (!pedido) return;
     const saldo = pedido.totales.saldo;
@@ -183,6 +184,15 @@ export default function PedidoDetallePage() {
   const showMoney = isAdmin;
   const hasRegalo = !!pedido.REGALO_ENVIADO && String(pedido.REGALO_ENVIADO).trim() !== '';
   const totalCantidad = pedido.items.reduce((a, i) => a + (Number(i.CANTIDAD) || 0), 0);
+  const puedeMover = isAdmin || isBodega;
+
+  function estadoDeItem(it: any): string {
+    const e = String(it.ESTATUS_ITEM || '').trim();
+    return e || pedido!.ESTATUS_ENVIO;
+  }
+  function itemEntregado(it: any): boolean {
+    return String(it.ENTREGADO_ITEM).toUpperCase().trim() === 'TRUE';
+  }
 
   return (
     <>
@@ -211,6 +221,9 @@ export default function PedidoDetallePage() {
               >
                 💬 Copiar mensaje WhatsApp
               </button>
+            )}
+            {puedeMover && (
+              <button className="btn" onClick={() => setShowItemsModal(true)}>Entregar ítems</button>
             )}
             <button className="btn btn-primary" onClick={() => setShowModal(true)}>Cambiar estado</button>
           </div>
@@ -269,6 +282,12 @@ export default function PedidoDetallePage() {
                 <div style={{ fontSize: 14 }}>{pedido.METODO_ENVIO || '—'}</div>
               </div>
             </div>
+            {pedido.cliente?.INDUSTRIA && (
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 6 }}>INDUSTRIA (para elegir pin)</div>
+                <div style={{ fontSize: 14 }}>{pedido.cliente.INDUSTRIA}</div>
+              </div>
+            )}
             {pedido.NOTAS && (
               <div style={{ marginTop: 20, padding: 14, background: 'var(--bg)', borderRadius: 4, borderLeft: '2px solid var(--gold)' }}>
                 <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 4 }}>NOTAS</div>
@@ -311,6 +330,21 @@ export default function PedidoDetallePage() {
               >
                 + Registrar pago
               </button>
+
+              {/* COSTOS Y GANANCIA */}
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', marginBottom: 8 }}>
+                  Costos y ganancia
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '3px 0', color: 'var(--text-soft)' }}>
+                  <span>Costos totales</span>
+                  <span className="tabular">{fmtMoney(pedido.totales.costos)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 500, padding: '5px 0', borderTop: '1px solid var(--border)', marginTop: 4 }}>
+                  <span>Ganancia</span>
+                  <span className="tabular" style={{ color: 'var(--green)' }}>{fmtMoney(pedido.totales.ganancia)}</span>
+                </div>
+              </div>
 
               {pedido.pagos.length > 0 && (
                 <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
@@ -363,6 +397,11 @@ export default function PedidoDetallePage() {
                     {item.TIPO_PRENDA} · Talla {item.TALLA} · {item.LONGITUD} · {item.COLOR}
                     {item.PARTE_DE_SET ? ` · ${item.PARTE_DE_SET}` : ''}
                   </div>
+                  <div style={{ marginTop: 6 }}>
+                    <span className="pill" style={{ fontSize: 10, padding: '3px 8px', background: itemEntregado(item) ? '#E6F4EA' : 'transparent', border: '1px solid var(--border)', color: itemEntregado(item) ? 'var(--green)' : 'var(--text-soft)' }}>
+                      {itemEntregado(item) ? '✓ ' : ''}{estadoDeItem(item)}
+                    </span>
+                  </div>
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--text-soft)' }}>×{item.CANTIDAD}</div>
                 {showMoney && (
@@ -401,6 +440,22 @@ export default function PedidoDetallePage() {
           estadoActual={pedido.ESTATUS_ENVIO}
           onClose={() => setShowModal(false)}
           onChange={handleChangeState}
+        />
+      )}
+
+      {showItemsModal && (
+        <ItemsStateModal
+          ordenId={pedido.ORDEN_ID}
+          items={pedido.items as any}
+          estadoCabecera={pedido.ESTATUS_ENVIO}
+          isAdmin={isAdmin}
+          onClose={() => setShowItemsModal(false)}
+          onDone={(msg) => {
+            setShowItemsModal(false);
+            setToast(msg);
+            setTimeout(() => setToast(''), 3000);
+            loadPedido();
+          }}
         />
       )}
 
