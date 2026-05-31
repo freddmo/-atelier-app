@@ -67,6 +67,8 @@ export type NuevoPedidoItem = {
   cantidad: number;
   precioVenta: number;
   parteDeSet: string;
+  origen?: 'STOCK' | 'PEDIDO';
+  loteId?: string;
 };
 
 export type CrearPedidoParams = {
