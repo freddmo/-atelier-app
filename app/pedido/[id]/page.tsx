@@ -244,7 +244,7 @@ export default function PedidoDetallePage() {
 
             // ── Pedido normal: barra de tiempo ──
             if (!esMixto) {
-              const idx = ESTADOS.indexOf(unicos[0] || pedido!.ESTATUS_ENVIO);
+              const idx = ESTADOS.indexOf((unicos[0] || pedido!.ESTATUS_ENVIO) as Estado);
               return (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '8px 0' }}>
@@ -279,7 +279,7 @@ export default function PedidoDetallePage() {
               const e = estadoDeItem(it);
               (grupos[e] = grupos[e] || []).push(it);
             });
-            const ordenados = Object.keys(grupos).sort((a, b) => ESTADOS.indexOf(a) - ESTADOS.indexOf(b));
+            const ordenados = Object.keys(grupos).sort((a, b) => ESTADOS.indexOf(a as Estado) - ESTADOS.indexOf(b as Estado));
 
             return (
               <div>
