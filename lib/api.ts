@@ -59,6 +59,15 @@ export type SetEmpaque = {
   costoTotal: number;
 };
 
+export type Regalo = {
+  REGALO_ID: string;
+  NOMBRE: string;
+  INDUSTRIA_SUGERIDA: string;
+  STOCK: number;
+  STOCK_MINIMO: number;
+  COSTO_UNITARIO: number;
+};
+
 export type NuevoPedidoItem = {
   sku: string;
   talla: string;
@@ -192,15 +201,6 @@ export type AsignacionStock = {
   cantidad: number;
 };
 
-export type Regalo = {
-  REGALO_ID: string;
-  NOMBRE: string;
-  INDUSTRIA_SUGERIDA: string;
-  STOCK: number;
-  STOCK_MINIMO: number;
-  COSTO_UNITARIO: number;
-};
-
 export type LoteStock = {
   LOTE_ID: string;
   SKU: string;
@@ -237,7 +237,7 @@ export const api = {
     if (tipoEmpaque) params.tipoEmpaque = tipoEmpaque;
     return apiCall(params);
   },
-    async cambiarEstadoItems(
+  async cambiarEstadoItems(
     ordenId: string,
     itemRows: number[],
     nuevoEstado: string,
@@ -253,13 +253,8 @@ export const api = {
     };
     if (opts.forzar) params.forzar = 'true';
     if (opts.tipoEmpaque) params.tipoEmpaque = opts.tipoEmpaque;
-    if (opts.costoDelivery) params.costoDelivery = String(opts.costoDelivery);
-    if (opts.pines && opts.pines.length > 0) params.pines = JSON.stringify(opts.pines);
-    return apiCall(params);
-  },
-    if (opts.forzar) params.forzar = 'true';
-    if (opts.tipoEmpaque) params.tipoEmpaque = opts.tipoEmpaque;
     if (opts.costoDelivery && opts.costoDelivery > 0) params.costoDelivery = String(opts.costoDelivery);
+    if (opts.pines && opts.pines.length > 0) params.pines = JSON.stringify(opts.pines);
     return apiCall(params);
   },
   async getSetEmpaque(): Promise<SetEmpaque[]> {
