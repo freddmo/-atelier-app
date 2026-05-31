@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, Cliente, SetCatalogo, NuevoPedidoItem, CrearPedidoParams } from '@/lib/api';
+import { api, Cliente, SetCatalogo, NuevoPedidoItem, CrearPedidoParams, LoteStock } from '@/lib/api';
 import { Producto } from '@/lib/types';
 import { auth } from '@/lib/auth';
 import Navbar from '@/components/Navbar';
@@ -21,25 +21,27 @@ function repartirSet(precio: number): { top: number; pant: number } {
   return { top, pant };
 }
 
-// Línea de producto en el formulario (set o suelta)
+// Línea de producto en el formulario (set, suelta o stock)
 type LineaProducto = {
   id: number;
-  tipo: 'set' | 'suelta';
+  tipo: 'set' | 'suelta' | 'stock';
   // si set:
   setNombre?: string;
-  // tallas/longitud/color
   skuTop?: string;
   skuPant?: string;
   tallaTop: string;
   tallaPant: string;
   longitud: string;
   color: string;
-  // si suelta:
+  // si suelta o stock:
   sku?: string;
   talla: string;
   cantidad: number;
+  // si stock:
+  loteId?: string;
+  costoLote?: number;
   // precios calculados
-  precioLista: number;   // precio del set o de la prenda
+  precioLista: number;
 };
 
 export default function NuevoPedidoPage() {
@@ -49,6 +51,7 @@ export default function NuevoPedidoPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [sets, setSets] = useState<SetCatalogo[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [stockLotes, setStockLotes] = useState<LoteStock[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Cliente
@@ -82,14 +85,16 @@ export default function NuevoPedidoPage() {
   async function load() {
     setLoading(true);
     try {
-      const [cls, sts, prods] = await Promise.all([
+      const [cls, sts, prods, stk] = await Promise.all([
         api.getClientes(),
         api.getSets(),
         api.getProductos(),
+        api.getStockDisponible(),
       ]);
       setClientes(cls);
       setSets(sts);
       setProductos(prods);
+      setStockLotes(stk);
     } catch (err) {
       alert('Error al cargar: ' + (err instanceof Error ? err.message : 'desconocido'));
     } finally {
@@ -129,6 +134,17 @@ export default function NuevoPedidoPage() {
     }]);
   }
 
+  function addStock() {
+    setLineas([...lineas, {
+      id: Date.now(),
+      tipo: 'stock',
+      tallaTop: '', tallaPant: '', longitud: 'Regular', color: '',
+      sku: '', talla: '', cantidad: 1,
+      loteId: '', costoLote: 0,
+      precioLista: 0,
+    }]);
+  }
+
   function updateLinea(id: number, campo: string, valor: string | number) {
     setLineas(lineas.map(l => {
       if (l.id !== id) return l;
@@ -142,6 +158,17 @@ export default function NuevoPedidoPage() {
           updated.precioLista = s.PRECIO_SET;
         }
       }
+      // Si eligió un lote de stock, rellenar sus datos
+      if (campo === 'loteId') {
+        const lote = stockLotes.find(x => x.LOTE_ID === valor);
+        if (lote) {
+          updated.sku = lote.SKU;
+          updated.talla = lote.TALLA;
+          updated.longitud = lote.LONGITUD;
+          updated.color = lote.COLOR;
+          updated.costoLote = lote.COSTO_UNITARIO;
+        }
+      }
       return updated;
     }));
   }
@@ -151,14 +178,16 @@ export default function NuevoPedidoPage() {
   }
 
   // ===== CÁLCULOS =====
-  const totalLista = lineas.reduce((s, l) => s + (l.precioLista * (l.tipo === 'suelta' ? l.cantidad : 1)), 0);
+  const totalLista = lineas.reduce(
+    (s, l) => s + (l.precioLista * ((l.tipo === 'suelta' || l.tipo === 'stock') ? l.cantidad : 1)),
+    0
+  );
   const precioNegNum = Number(precioNegociado) || 0;
   const descuentoMonto = precioNegNum > 0 ? Math.max(0, totalLista - precioNegNum) : 0;
   const totalFinal = totalLista - descuentoMonto;
 
   // ===== SUBMIT =====
   async function handleSubmit() {
-    // Validar cliente
     if (!clienteEsNuevo && !clienteSel) {
       alert('Selecciona un cliente o marca "cliente nuevo"');
       return;
@@ -172,7 +201,6 @@ export default function NuevoPedidoPage() {
       return;
     }
 
-    // Validar líneas y construir items
     const items: NuevoPedidoItem[] = [];
     for (const l of lineas) {
       if (l.tipo === 'set') {
@@ -184,12 +212,14 @@ export default function NuevoPedidoPage() {
         items.push({
           sku: l.skuTop!, talla: l.tallaTop.trim(), longitud: l.longitud,
           color: l.color.trim(), cantidad: 1, precioVenta: top, parteDeSet: l.setNombre!,
+          origen: 'PEDIDO',
         });
         items.push({
           sku: l.skuPant!, talla: l.tallaPant.trim(), longitud: l.longitud,
           color: l.color.trim(), cantidad: 1, precioVenta: pant, parteDeSet: l.setNombre!,
+          origen: 'PEDIDO',
         });
-      } else {
+      } else if (l.tipo === 'suelta') {
         if (!l.sku || !l.talla.trim() || !l.color.trim() || l.cantidad <= 0 || l.precioLista <= 0) {
           alert('Hay una prenda suelta incompleta');
           return;
@@ -197,6 +227,17 @@ export default function NuevoPedidoPage() {
         items.push({
           sku: l.sku, talla: l.talla.trim(), longitud: l.longitud,
           color: l.color.trim(), cantidad: l.cantidad, precioVenta: l.precioLista, parteDeSet: '',
+          origen: 'PEDIDO',
+        });
+      } else { // stock
+        if (!l.loteId || !l.sku || l.cantidad <= 0 || l.precioLista <= 0) {
+          alert('Hay una prenda de stock sin lote seleccionado o sin precio');
+          return;
+        }
+        items.push({
+          sku: l.sku, talla: l.talla, longitud: l.longitud,
+          color: l.color, cantidad: l.cantidad, precioVenta: l.precioLista, parteDeSet: '',
+          origen: 'STOCK', loteId: l.loteId,
         });
       }
     }
@@ -338,20 +379,21 @@ export default function NuevoPedidoPage() {
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button className="btn" onClick={addSet} style={{ padding: '6px 14px', fontSize: 12 }}>+ Set</button>
                   <button className="btn" onClick={addSuelta} style={{ padding: '6px 14px', fontSize: 12 }}>+ Producto suelto</button>
+                  <button className="btn" onClick={addStock} style={{ padding: '6px 14px', fontSize: 12, color: 'var(--green)' }}>+ De stock</button>
                 </div>
               </div>
 
               {lineas.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-faint)', background: 'var(--bg)', borderRadius: 4, fontSize: 13 }}>
-                  Sin productos. Agrega un set o una prenda suelta.
+                  Sin productos. Agrega un set, una prenda suelta o algo de stock.
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {lineas.map(l => (
                     <div key={l.id} style={{ padding: 16, background: 'var(--bg)', borderRadius: 4, border: '1px solid var(--border)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: l.tipo === 'set' ? 'var(--gold)' : 'var(--blue)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                          {l.tipo === 'set' ? '◆ Set' : '○ Producto suelto'}
+                        <span style={{ fontSize: 11, fontWeight: 600, color: l.tipo === 'set' ? 'var(--gold)' : l.tipo === 'stock' ? 'var(--green)' : 'var(--blue)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          {l.tipo === 'set' ? '◆ Set' : l.tipo === 'stock' ? '▣ De stock' : '○ Producto suelto'}
                         </span>
                         <button className="btn" onClick={() => removeLinea(l.id)} style={{ padding: '4px 10px', fontSize: 12, color: 'var(--rose)' }}>✕</button>
                       </div>
@@ -383,7 +425,7 @@ export default function NuevoPedidoPage() {
                             <input className="input" value={l.color} onChange={(e) => updateLinea(l.id, 'color', e.target.value)} placeholder="Negro" style={{ marginTop: 2, padding: '6px 8px', fontSize: 12 }} />
                           </div>
                         </div>
-                      ) : (
+                      ) : l.tipo === 'suelta' ? (
                         <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 1fr 1fr 0.6fr 0.9fr', gap: 10, alignItems: 'end' }}>
                           <div>
                             <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Producto</label>
@@ -413,6 +455,36 @@ export default function NuevoPedidoPage() {
                             <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Precio $</label>
                             <input type="number" step="0.01" className="input" value={l.precioLista || ''} onChange={(e) => updateLinea(l.id, 'precioLista', Number(e.target.value) || 0)} placeholder="0.00" style={{ marginTop: 2, padding: '6px 8px', fontSize: 12 }} />
                           </div>
+                        </div>
+                      ) : (
+                        // ── STOCK ──
+                        <div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.6fr 1fr', gap: 10, alignItems: 'end' }}>
+                            <div>
+                              <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Lote en stock</label>
+                              <select className="input" value={l.loteId} onChange={(e) => updateLinea(l.id, 'loteId', e.target.value)} style={{ marginTop: 2, padding: '6px 8px', fontSize: 12 }}>
+                                <option value="">— Elegir prenda de stock —</option>
+                                {stockLotes.map(lote => (
+                                  <option key={lote.LOTE_ID} value={lote.LOTE_ID}>
+                                    {lote.SKU} {lote.TALLA} {lote.LONGITUD} {lote.COLOR} — {fmtMoney(lote.COSTO_UNITARIO)} ({lote.LOTE_ID}){lote.tieneCourier ? '' : ' ⚠'}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Cant</label>
+                              <input type="number" className="input" value={l.cantidad} onChange={(e) => updateLinea(l.id, 'cantidad', Number(e.target.value) || 0)} style={{ marginTop: 2, padding: '6px 8px', fontSize: 12 }} />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Precio venta $</label>
+                              <input type="number" step="0.01" className="input" value={l.precioLista || ''} onChange={(e) => updateLinea(l.id, 'precioLista', Number(e.target.value) || 0)} placeholder="0.00" style={{ marginTop: 2, padding: '6px 8px', fontSize: 12 }} />
+                            </div>
+                          </div>
+                          {l.loteId && (
+                            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-faint)' }}>
+                              {l.sku} · {l.talla} · {l.longitud} · {l.color} · costo {fmtMoney(l.costoLote || 0)}
+                            </div>
+                          )}
                         </div>
                       )}
                       {l.tipo === 'set' && (
