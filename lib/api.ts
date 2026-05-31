@@ -334,4 +334,19 @@ export const api = {
       usuario,
     });
   },
+  async crearCliente(
+    cliente: {
+      nombre: string; telefono?: string; direccion?: string; ciudad?: string;
+      cedulaRuc?: string; industria?: string; email?: string;
+    },
+    fecha: string,
+    usuario: string
+  ): Promise<Cliente> {
+    return apiCall<Cliente>({
+      action: 'crearCliente',
+      cliente: JSON.stringify(cliente),
+      fecha,
+      usuario,
+    });
+  },
 };
