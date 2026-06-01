@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   api,
-  PedidoPendienteCourier,
+  PedidoItemsCourier,
   LotePendienteCourier,
 } from '@/lib/api';
 import { auth } from '@/lib/auth';
@@ -18,14 +18,14 @@ export default function CargarCourierPage() {
   const router = useRouter();
   const today = new Date().toISOString().split('T')[0];
 
-  const [pedidos, setPedidos] = useState<PedidoPendienteCourier[]>([]);
+  const [pedidosItems, setPedidosItems] = useState<PedidoItemsCourier[]>([]);
   const [lotes, setLotes] = useState<LotePendienteCourier[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [costoCourier, setCostoCourier] = useState('');
   const [fecha, setFecha] = useState(today);
 
-  const [pedidosSel, setPedidosSel] = useState<string[]>([]);
+  const [itemsSel, setItemsSel] = useState<Set<number>>(new Set());
   const [lotesSel, setLotesSel] = useState<string[]>([]);
 
   const [submitting, setSubmitting] = useState(false);
@@ -42,10 +42,10 @@ export default function CargarCourierPage() {
     setLoading(true);
     try {
       const [peds, lots] = await Promise.all([
-        api.getPedidosPendientesCourier(),
+        api.getItemsPendientesCourier(),
         api.getLotesPendientesCourier(),
       ]);
-      setPedidos(peds);
+      setPedidosItems(peds);
       setLotes(lots);
     } catch (err) {
       alert('Error al cargar: ' + (err instanceof Error ? err.message : 'desconocido'));
@@ -54,48 +54,58 @@ export default function CargarCourierPage() {
     }
   }
 
-  function togglePedido(id: string) {
-    setPedidosSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
+  function toggleItem(rowNum: number) {
+    setItemsSel(prev => {
+      const next = new Set(prev);
+      if (next.has(rowNum)) next.delete(rowNum); else next.add(rowNum);
+      return next;
+    });
+  }
+  function togglePedidoCompleto(p: PedidoItemsCourier) {
+    setItemsSel(prev => {
+      const next = new Set(prev);
+      const todosMarcados = p.items.every(it => next.has(it._rowNum));
+      p.items.forEach(it => { if (todosMarcados) next.delete(it._rowNum); else next.add(it._rowNum); });
+      return next;
+    });
   }
   function toggleLote(id: string) {
     setLotesSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
   }
 
-  const pedidosElegidos = pedidos.filter(p => pedidosSel.includes(p.ORDEN_ID));
+  // Aplanar todos los ítems con su pedido, para cálculos y submit
+  const todosItems = pedidosItems.flatMap(p =>
+    p.items.map(it => ({ ...it, ordenId: p.ORDEN_ID, clienteNombre: p.CLIENTE_NOMBRE }))
+  );
+  const itemsElegidos = todosItems.filter(it => itemsSel.has(it._rowNum));
   const lotesElegidos = lotes.filter(l => lotesSel.includes(l.LOTE_ID));
 
-  const itemsPedidos = pedidosElegidos.reduce((s, p) => s + p.numItems, 0);
+  const itemsItems = itemsElegidos.reduce((s, it) => s + it.CANTIDAD, 0);
   const itemsLotes = lotesElegidos.reduce((s, l) => s + l.CANT_INICIAL, 0);
-  const totalItems = itemsPedidos + itemsLotes;
+  const totalItems = itemsItems + itemsLotes;
 
   const costoNum = Number(costoCourier) || 0;
   const costoPorItem = totalItems > 0 ? costoNum / totalItems : 0;
 
   async function handleSubmit() {
-    if (totalItems === 0) {
-      alert('Selecciona al menos un pedido o lote');
-      return;
-    }
-    if (costoNum <= 0) {
-      alert('Ingresa el costo del courier');
-      return;
-    }
+    if (totalItems === 0) { alert('Selecciona al menos un ítem o lote'); return; }
+    if (costoNum <= 0) { alert('Ingresa el costo del courier'); return; }
     const user = auth.getUser();
     if (!user) return;
 
     setSubmitting(true);
     try {
       await api.cargarEnvioCourier({
-        pedidos: pedidosElegidos.map(p => ({ ordenId: p.ORDEN_ID, numItems: p.numItems })),
+        items: itemsElegidos.map(it => ({ ordenId: it.ordenId, itemRowNum: it._rowNum, cantidad: it.CANTIDAD })),
         lotes: lotesElegidos.map(l => ({ loteId: l.LOTE_ID, cantInicial: l.CANT_INICIAL })),
         costoCourier: costoNum,
         fecha,
       }, user.usuario);
 
-      setToast(`✅ Courier ${fmtMoney(costoNum)} repartido entre ${totalItems} items`);
+      setToast(`✅ Courier ${fmtMoney(costoNum)} repartido entre ${totalItems} piezas`);
       setTimeout(() => setToast(''), 4000);
 
-      setPedidosSel([]);
+      setItemsSel(new Set());
       setLotesSel([]);
       setCostoCourier('');
       load();
@@ -116,8 +126,8 @@ export default function CargarCourierPage() {
             Cargar envío courier<em style={{ color: 'var(--gold)' }}>.</em>
           </h1>
           <p style={{ color: 'var(--text-soft)', fontSize: 14, margin: '12px 0 0', maxWidth: 640 }}>
-            Marca los pedidos y lotes de stock que llegaron en este envío. El costo se reparte
-            proporcional al número de items entre todo lo seleccionado.
+            Marca los ítems y lotes que llegaron en este envío. El costo se reparte
+            proporcional al número de piezas entre todo lo seleccionado.
           </p>
         </div>
 
@@ -136,45 +146,67 @@ export default function CargarCourierPage() {
           </div>
         </div>
 
-        {/* 2. PEDIDOS */}
+        {/* 2. ÍTEMS DE PEDIDOS */}
         <div className="card" style={{ padding: 28, marginBottom: 20 }}>
           <h3 style={{ margin: '0 0 6px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-            2. Pedidos en este envío · <span className="tabular">{pedidosSel.length}</span> seleccionados
+            2. Ítems de pedidos · <span className="tabular">{itemsSel.size}</span> seleccionados
           </h3>
           <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '0 0 16px' }}>
-            Pedidos con costo de prenda cargado, pendientes de courier.
+            Ítems con costo cargado, en tránsito o en bodega, pendientes de courier. Marca solo los que llegaron en este envío.
           </p>
           {loading ? (
             <div style={{ textAlign: 'center', padding: 24, color: 'var(--text-faint)' }}>Cargando…</div>
-          ) : pedidos.length === 0 ? (
+          ) : pedidosItems.length === 0 ? (
             <div style={{ textAlign: 'center', padding: 20, color: 'var(--text-faint)', background: 'var(--bg)', borderRadius: 4 }}>
-              No hay pedidos pendientes de courier.
+              No hay ítems pendientes de courier.
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {pedidos.map(p => {
-                const sel = pedidosSel.includes(p.ORDEN_ID);
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {pedidosItems.map(p => {
+                const todosMarcados = p.items.every(it => itemsSel.has(it._rowNum));
                 return (
-                  <div
-                    key={p.ORDEN_ID}
-                    onClick={() => togglePedido(p.ORDEN_ID)}
-                    style={{
-                      padding: '10px 14px', borderRadius: 4, cursor: 'pointer',
-                      background: sel ? 'var(--bg)' : 'transparent',
-                      border: `1px solid ${sel ? 'var(--text)' : 'var(--border)'}`,
-                      display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 12, alignItems: 'center',
-                    }}
-                  >
-                    <div style={{ width: 18, height: 18, borderRadius: 3, border: `1.5px solid ${sel ? 'var(--text)' : 'var(--border)'}`, background: sel ? 'var(--text)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 12 }}>
-                      {sel ? '✓' : ''}
-                    </div>
-                    <div>
-                      <div className="display" style={{ fontSize: 14 }}>{p.CLIENTE_NOMBRE}</div>
-                      <div style={{ fontSize: 11, color: 'var(--text-soft)' }}>
-                        <span className="mono">{p.ORDEN_ID}</span> · {p.ESTATUS_ENVIO}
+                  <div key={p.ORDEN_ID} style={{ border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: 'var(--bg)' }}>
+                      <div>
+                        <span className="display" style={{ fontSize: 14 }}>{p.CLIENTE_NOMBRE}</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-soft)', marginLeft: 8 }}>
+                          <span className="mono">{p.ORDEN_ID}</span> · {p.ESTATUS_ENVIO}
+                        </span>
                       </div>
+                      <button className="btn" onClick={() => togglePedidoCompleto(p)} style={{ padding: '4px 10px', fontSize: 11 }}>
+                        {todosMarcados ? 'Quitar todo' : 'Marcar todo'}
+                      </button>
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>{p.numItems} item{p.numItems !== 1 ? 's' : ''}</div>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      {p.items.map(it => {
+                        const sel = itemsSel.has(it._rowNum);
+                        return (
+                          <div
+                            key={it._rowNum}
+                            onClick={() => toggleItem(it._rowNum)}
+                            style={{
+                              padding: '10px 14px', cursor: 'pointer',
+                              background: sel ? 'rgba(184,149,78,0.06)' : 'transparent',
+                              borderTop: '1px solid var(--border)',
+                              display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: 12, alignItems: 'center',
+                            }}
+                          >
+                            <div style={{ width: 18, height: 18, borderRadius: 3, border: `1.5px solid ${sel ? 'var(--text)' : 'var(--border)'}`, background: sel ? 'var(--text)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 12 }}>
+                              {sel ? '✓' : ''}
+                            </div>
+                            <div>
+                              <div style={{ fontSize: 13 }}>{it.NOMBRE_PRODUCTO || it.SKU}</div>
+                              <div style={{ fontSize: 11, color: 'var(--text-soft)' }}>
+                                {it.TALLA} · {it.LONGITUD} · {it.COLOR}
+                              </div>
+                            </div>
+                            <span className="pill" style={{ fontSize: 10, padding: '3px 8px', background: 'var(--bg)', color: 'var(--text-soft)' }}>
+                              {it.ESTATUS_ITEM}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 );
               })}
@@ -235,20 +267,20 @@ export default function CargarCourierPage() {
               4. Preview · Reparto del courier
             </h3>
             <div style={{ fontSize: 12, color: 'var(--text-soft)', marginBottom: 12 }}>
-              {fmtMoney(costoNum)} ÷ {totalItems} items = <strong>{fmtMoney(costoPorItem)}</strong> por item
+              {fmtMoney(costoNum)} ÷ {totalItems} piezas = <strong>{fmtMoney(costoPorItem)}</strong> por pieza
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {pedidosElegidos.map(p => (
-                <div key={p.ORDEN_ID} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 12, fontSize: 12, padding: '4px 0' }}>
-                  <span><span className="mono" style={{ color: 'var(--text-soft)' }}>{p.ORDEN_ID}</span> {p.CLIENTE_NOMBRE}</span>
-                  <span className="tabular" style={{ color: 'var(--text-faint)' }}>{p.numItems} items</span>
-                  <span className="display tabular" style={{ color: 'var(--gold)', minWidth: 80, textAlign: 'right' }}>{fmtMoney(costoPorItem * p.numItems)}</span>
+              {itemsElegidos.map(it => (
+                <div key={it._rowNum} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 12, fontSize: 12, padding: '4px 0' }}>
+                  <span><span className="mono" style={{ color: 'var(--text-soft)' }}>{it.ordenId}</span> {it.NOMBRE_PRODUCTO} · {it.TALLA} {it.COLOR}</span>
+                  <span className="tabular" style={{ color: 'var(--text-faint)' }}>{it.CANTIDAD} pza</span>
+                  <span className="display tabular" style={{ color: 'var(--gold)', minWidth: 80, textAlign: 'right' }}>{fmtMoney(costoPorItem * it.CANTIDAD)}</span>
                 </div>
               ))}
               {lotesElegidos.map(l => (
                 <div key={l.LOTE_ID} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 12, fontSize: 12, padding: '4px 0' }}>
                   <span><span className="mono" style={{ color: 'var(--gold)' }}>{l.LOTE_ID}</span> {l.SKU}</span>
-                  <span className="tabular" style={{ color: 'var(--text-faint)' }}>{l.CANT_INICIAL} items</span>
+                  <span className="tabular" style={{ color: 'var(--text-faint)' }}>{l.CANT_INICIAL} pza</span>
                   <span className="display tabular" style={{ color: 'var(--gold)', minWidth: 80, textAlign: 'right' }}>{fmtMoney(costoPorItem * l.CANT_INICIAL)}</span>
                 </div>
               ))}
@@ -264,7 +296,7 @@ export default function CargarCourierPage() {
             onClick={handleSubmit}
             disabled={submitting || totalItems === 0 || costoNum <= 0}
           >
-            {submitting ? 'Guardando…' : `Distribuir courier (${totalItems} items)`}
+            {submitting ? 'Guardando…' : `Distribuir courier (${totalItems} piezas)`}
           </button>
         </div>
       </div>
