@@ -140,8 +140,9 @@ export type LotePendienteCourier = {
 };
 
 export type CargarCourierParams = {
-  pedidos: { ordenId: string; numItems: number }[];
+  pedidos?: { ordenId: string; numItems: number }[];
   lotes: { loteId: string; cantInicial: number }[];
+  items?: { ordenId: string; itemRowNum: number; cantidad: number }[];
   costoCourier: number;
   fecha: string;
 };
@@ -213,6 +214,25 @@ export type LoteStock = {
   FECHA_ENTRADA: string;
   COSTO_UNITARIO: number;
   tieneCourier: boolean;
+};
+
+export type ItemCourier = {
+  _rowNum: number;
+  SKU: string;
+  NOMBRE_PRODUCTO: string;
+  TALLA: string;
+  LONGITUD: string;
+  COLOR: string;
+  CANTIDAD: number;
+  ESTATUS_ITEM: string;
+};
+
+export type PedidoItemsCourier = {
+  ORDEN_ID: string;
+  CLIENTE_NOMBRE: string;
+  ESTATUS_ENVIO: string;
+  F_ORDEN: string;
+  items: ItemCourier[];
 };
 
 export const api = {
@@ -308,12 +328,16 @@ export const api = {
   async cargarEnvioCourier(params: CargarCourierParams, usuario: string) {
     return apiCall({
       action: 'cargarEnvioCourier',
-      pedidos: JSON.stringify(params.pedidos),
-      lotes: JSON.stringify(params.lotes),
+      pedidos: JSON.stringify(params.pedidos || []),
+      lotes: JSON.stringify(params.lotes || []),
+      items: JSON.stringify(params.items || []),
       costoCourier: String(params.costoCourier),
       fecha: params.fecha,
       usuario,
     });
+  },
+  async getItemsPendientesCourier(): Promise<PedidoItemsCourier[]> {
+    return apiCall<PedidoItemsCourier[]>({ action: 'getItemsPendientesCourier' });
   },
   async getStockDisponiblePorItem(): Promise<PedidoConStock[]> {
     return apiCall<PedidoConStock[]>({ action: 'getStockDisponiblePorItem' });
