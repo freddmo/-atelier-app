@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ESTADOS, Estado } from '@/lib/types';
-import { api, SetEmpaque, ApiError } from '@/lib/api';
+import { api, SetEmpaque, Regalo, ApiError } from '@/lib/api';
 import { auth } from '@/lib/auth';
 
 type ItemLite = {
@@ -30,11 +30,14 @@ export default function ItemsStateModal({ ordenId, items, estadoCabecera, isAdmi
   const [target, setTarget] = useState<Estado | ''>('');
   const [setsEmpaque, setSetsEmpaque] = useState<SetEmpaque[]>([]);
   const [empaque, setEmpaque] = useState('');
+  const [regalos, setRegalos] = useState<Regalo[]>([]);
+  const [pinSel, setPinSel] = useState('');
   const [costoDelivery, setCostoDelivery] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     api.getSetEmpaque().then(setSetsEmpaque).catch(() => {});
+    api.getRegalos().then(setRegalos).catch(() => {});
   }, []);
 
   function toggle(row: number) {
@@ -62,8 +65,12 @@ export default function ItemsStateModal({ ordenId, items, estadoCabecera, isAdmi
     if (target === 'LISTO PARA ENVIAR' && !empaque) { alert('Elige el tipo de empaque'); return; }
 
     const itemRows = Array.from(selected);
-    const opts: { forzar?: boolean; tipoEmpaque?: string; costoDelivery?: number } = {};
+    const opts: {
+      forzar?: boolean; tipoEmpaque?: string; costoDelivery?: number;
+      pines?: { regaloid: string; cantidad: number }[];
+    } = {};
     if (target === 'LISTO PARA ENVIAR') opts.tipoEmpaque = empaque;
+    if (target === 'LISTO PARA ENVIAR' && pinSel) opts.pines = [{ regaloid: pinSel, cantidad: 1 }];
     if (target === 'ENTREGADO' && Number(costoDelivery) > 0) opts.costoDelivery = Number(costoDelivery);
 
     setSaving(true);
@@ -145,15 +152,28 @@ export default function ItemsStateModal({ ordenId, items, estadoCabecera, isAdmi
           {ESTADOS.map(s => <option key={s} value={s}>{s}</option>)}
         </select>
 
-        {/* Empaque (si LISTO PARA ENVIAR) */}
+        {/* Empaque + Pin (si LISTO PARA ENVIAR) */}
         {target === 'LISTO PARA ENVIAR' && (
-          <div style={{ marginBottom: 14 }}>
-            <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Tipo de empaque</label>
-            <select className="input" value={empaque} onChange={(e) => setEmpaque(e.target.value)} style={{ marginTop: 4 }}>
-              <option value="">— Elegir empaque —</option>
-              {setsEmpaque.map(s => <option key={s.SET_ID} value={s.SET_ID}>{s.NOMBRE_SET} — ${s.costoTotal.toFixed(2)}</option>)}
-            </select>
-          </div>
+          <>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Tipo de empaque</label>
+              <select className="input" value={empaque} onChange={(e) => setEmpaque(e.target.value)} style={{ marginTop: 4 }}>
+                <option value="">— Elegir empaque —</option>
+                {setsEmpaque.map(s => <option key={s.SET_ID} value={s.SET_ID}>{s.NOMBRE_SET} — ${s.costoTotal.toFixed(2)}</option>)}
+              </select>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Pin / regalo (opcional)</label>
+              <select className="input" value={pinSel} onChange={(e) => setPinSel(e.target.value)} style={{ marginTop: 4 }}>
+                <option value="">— Sin pin —</option>
+                {regalos.filter(r => Number(r.STOCK) > 0).map(r => (
+                  <option key={r.REGALO_ID} value={r.REGALO_ID}>
+                    {r.NOMBRE}{r.INDUSTRIA_SUGERIDA ? ` · ${r.INDUSTRIA_SUGERIDA}` : ''} (stock {r.STOCK})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </>
         )}
 
         {/* Costo delivery (si ENTREGADO) */}
