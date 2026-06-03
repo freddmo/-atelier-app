@@ -166,6 +166,9 @@ export type CargarFacturaParams = {
   shipping: number;
   numFactura: string;
   fecha: string;
+  stockYaLlego?: boolean;
+  tracking?: string;
+  transporte?: string;
 };
 
 export type ItemConStock = {
@@ -316,6 +319,9 @@ export const api = {
       shipping: String(params.shipping),
       numFactura: params.numFactura,
       fecha: params.fecha,
+      stockYaLlego: params.stockYaLlego ? 'true' : 'false',
+      tracking: params.tracking || '',
+      transporte: params.transporte || '',
       usuario,
     });
   },
