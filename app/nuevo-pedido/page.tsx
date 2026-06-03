@@ -184,6 +184,14 @@ export default function NuevoPedidoPage() {
     setLineas(lineas.filter(l => l.id !== id));
   }
 
+  // ===== STOCK: disponible por lote descontando lo ya elegido en este pedido =====
+  function disponibleLoteParaLinea(lote: LoteStock, lineaId: number) {
+    const usadoOtras = lineas
+      .filter(l => l.tipo === 'stock' && l.loteId === lote.LOTE_ID && l.id !== lineaId)
+      .reduce((s, l) => s + (Number(l.cantidad) || 0), 0);
+    return lote.CANT_DISPONIBLE - usadoOtras;
+  }
+
   // ===== CÁLCULOS =====
   const totalLista = lineas.reduce(
     (s, l) => s + (l.precioLista * ((l.tipo === 'suelta' || l.tipo === 'stock') ? l.cantidad : 1)),
@@ -206,6 +214,21 @@ export default function NuevoPedidoPage() {
     if (lineas.length === 0) {
       alert('Agrega al menos un producto');
       return;
+    }
+
+    // Validar que no se exceda el stock disponible por lote
+    const usoPorLote: Record<string, number> = {};
+    for (const l of lineas) {
+      if (l.tipo === 'stock' && l.loteId) {
+        usoPorLote[l.loteId] = (usoPorLote[l.loteId] || 0) + (Number(l.cantidad) || 0);
+      }
+    }
+    for (const loteId in usoPorLote) {
+      const lote = stockLotes.find(x => x.LOTE_ID === loteId);
+      if (lote && usoPorLote[loteId] > lote.CANT_DISPONIBLE) {
+        alert(`Estás asignando ${usoPorLote[loteId]} de ${lote.SKU} (${loteId}) pero solo hay ${lote.CANT_DISPONIBLE} disponibles.`);
+        return;
+      }
     }
 
     const items: NuevoPedidoItem[] = [];
@@ -486,11 +509,14 @@ export default function NuevoPedidoPage() {
                               <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Lote en stock</label>
                               <select className="input" value={l.loteId} onChange={(e) => updateLinea(l.id, 'loteId', e.target.value)} style={{ marginTop: 2, padding: '6px 8px', fontSize: 12 }}>
                                 <option value="">— Elegir prenda de stock —</option>
-                                {stockLotes.map(lote => (
-                                  <option key={lote.LOTE_ID} value={lote.LOTE_ID}>
-                                    {lote.SKU} {lote.TALLA} {lote.LONGITUD} {lote.COLOR} — {fmtMoney(lote.COSTO_UNITARIO)} ({lote.LOTE_ID}){lote.tieneCourier ? '' : ' ⚠'}
-                                  </option>
-                                ))}
+                                {stockLotes
+                                  .map(lote => ({ lote, restante: disponibleLoteParaLinea(lote, l.id) }))
+                                  .filter(({ lote, restante }) => restante > 0 || lote.LOTE_ID === l.loteId)
+                                  .map(({ lote, restante }) => (
+                                    <option key={lote.LOTE_ID} value={lote.LOTE_ID}>
+                                      {lote.SKU} {lote.TALLA} {lote.LONGITUD} {lote.COLOR} — {fmtMoney(lote.COSTO_UNITARIO)} ({lote.LOTE_ID}) · quedan {restante}{lote.tieneCourier ? '' : ' ⚠'}
+                                    </option>
+                                  ))}
                               </select>
                             </div>
                             <div>
