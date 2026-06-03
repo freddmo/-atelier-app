@@ -34,6 +34,36 @@ function stateClass(estado: string) {
   return 'state-' + estado.replace(/\s+/g, '-');
 }
 
+// ===== #3: de qué factura (o stock) viene cada ítem =====
+function origenInfo(origen: string): { tipo: 'factura' | 'stock' | 'otro'; valor: string } | null {
+  const o = String(origen || '').trim();
+  if (!o) return null;
+  const mF = o.match(/Factura FIGS\s+(.+)/i);
+  if (mF) return { tipo: 'factura', valor: mF[1].trim() };
+  const mS = o.match(/Stock\s+(.+)/i);
+  if (mS) return { tipo: 'stock', valor: mS[1].trim() };
+  return { tipo: 'otro', valor: o };
+}
+
+function origenDeItem(item: any, costos: any[]): string {
+  const sku = String(item.SKU || '').toUpperCase().trim();
+  const talla = String(item.TALLA || '').toUpperCase().trim();
+  const color = String(item.COLOR || '').toUpperCase().trim();
+  const brutos = (costos || []).filter(c => String(c.TIPO_COSTO).toUpperCase().trim() === 'BRUTO');
+  let cands = brutos.filter(c => {
+    const d = String(c.DESCRIPCION || '').toUpperCase();
+    return d.startsWith(sku) && (color ? d.includes(color) : true);
+  });
+  if (cands.length > 1 && talla) {
+    const narrowed = cands.filter(c => {
+      const tokens = String(c.DESCRIPCION || '').toUpperCase().split(/[\s\-]+/);
+      return tokens.indexOf(talla) !== -1;
+    });
+    if (narrowed.length >= 1) cands = narrowed;
+  }
+  return cands[0] ? String(cands[0].ORIGEN || '').trim() : '';
+}
+
 export default function PedidoDetallePage() {
   const router = useRouter();
   const params = useParams();
@@ -243,12 +273,10 @@ export default function PedidoDetallePage() {
           </div>
 
           {(() => {
-            // Estado efectivo de cada ítem (con fallback a la cabecera)
             const estados = pedido!.items.map(it => estadoDeItem(it));
             const unicos = Array.from(new Set(estados));
             const esMixto = unicos.length > 1;
 
-            // ── Pedido normal: barra de tiempo ──
             if (!esMixto) {
               const idx = ESTADOS.indexOf((unicos[0] || pedido!.ESTATUS_ENVIO) as Estado);
               return (
@@ -279,7 +307,6 @@ export default function PedidoDetallePage() {
               );
             }
 
-            // ── Pedido mixto: resumen por grupo ──
             const grupos: Record<string, any[]> = {};
             pedido!.items.forEach(it => {
               const e = estadoDeItem(it);
@@ -390,7 +417,6 @@ export default function PedidoDetallePage() {
                 + Registrar pago
               </button>
 
-              {/* COSTOS Y GANANCIA */}
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
                 <div style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', marginBottom: 8 }}>
                   Costos y ganancia
@@ -447,30 +473,40 @@ export default function PedidoDetallePage() {
             Productos · <span className="tabular">{totalCantidad} pieza{totalCantidad !== 1 ? 's' : ''}</span>
           </h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {pedido.items.map((item, idx) => (
-              <div key={idx} style={{ display: 'grid', gridTemplateColumns: showMoney ? '24px 1fr auto auto auto' : '24px 1fr auto', gap: 16, alignItems: 'center', padding: 14, background: 'var(--bg)', borderRadius: 4 }}>
-                <span className="display" style={{ fontSize: 18, fontWeight: 300, color: 'var(--text-faint)' }}>{String(idx + 1).padStart(2, '0')}</span>
-                <div style={{ minWidth: 0 }}>
-                  <div className="display" style={{ fontSize: 16, fontWeight: 400, marginBottom: 4 }}>{item.NOMBRE_PRODUCTO || item.SKU}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>
-                    {item.TIPO_PRENDA} · Talla {item.TALLA} · {item.LONGITUD} · {item.COLOR}
-                    {item.PARTE_DE_SET ? ` · ${item.PARTE_DE_SET}` : ''}
+            {pedido.items.map((item, idx) => {
+              const info = origenInfo(origenDeItem(item, pedido!.costos));
+              return (
+                <div key={idx} style={{ display: 'grid', gridTemplateColumns: showMoney ? '24px 1fr auto auto auto' : '24px 1fr auto', gap: 16, alignItems: 'center', padding: 14, background: 'var(--bg)', borderRadius: 4 }}>
+                  <span className="display" style={{ fontSize: 18, fontWeight: 300, color: 'var(--text-faint)' }}>{String(idx + 1).padStart(2, '0')}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="display" style={{ fontSize: 16, fontWeight: 400, marginBottom: 4 }}>{item.NOMBRE_PRODUCTO || item.SKU}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>
+                      {item.TIPO_PRENDA} · Talla {item.TALLA} · {item.LONGITUD} · {item.COLOR}
+                      {item.PARTE_DE_SET ? ` · ${item.PARTE_DE_SET}` : ''}
+                    </div>
+                    <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <span className="pill" style={{ fontSize: 10, padding: '3px 8px', background: itemEntregado(item) ? '#E6F4EA' : 'transparent', border: '1px solid var(--border)', color: itemEntregado(item) ? 'var(--green)' : 'var(--text-soft)' }}>
+                        {itemEntregado(item) ? '✓ ' : ''}{estadoDeItem(item)}
+                      </span>
+                      {info && (
+                        <span style={{ fontSize: 10, color: info.tipo === 'stock' ? 'var(--green)' : 'var(--text-faint)' }}>
+                          {info.tipo === 'factura' ? `📄 Factura FIGS ${info.valor}`
+                            : info.tipo === 'stock' ? `▣ De stock · ${info.valor}`
+                            : info.valor}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div style={{ marginTop: 6 }}>
-                    <span className="pill" style={{ fontSize: 10, padding: '3px 8px', background: itemEntregado(item) ? '#E6F4EA' : 'transparent', border: '1px solid var(--border)', color: itemEntregado(item) ? 'var(--green)' : 'var(--text-soft)' }}>
-                      {itemEntregado(item) ? '✓ ' : ''}{estadoDeItem(item)}
-                    </span>
-                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text-soft)' }}>×{item.CANTIDAD}</div>
+                  {showMoney && (
+                    <>
+                      <div className="tabular hide-mobile" style={{ fontSize: 12, color: 'var(--text-soft)' }}>{fmtMoney(Number(item.PRECIO_VENTA))} c/u</div>
+                      <div className="display tabular" style={{ fontSize: 16, minWidth: 70, textAlign: 'right' }}>{fmtMoney(Number(item.PRECIO_VENTA) * Number(item.CANTIDAD))}</div>
+                    </>
+                  )}
                 </div>
-                <div style={{ fontSize: 13, color: 'var(--text-soft)' }}>×{item.CANTIDAD}</div>
-                {showMoney && (
-                  <>
-                    <div className="tabular hide-mobile" style={{ fontSize: 12, color: 'var(--text-soft)' }}>{fmtMoney(Number(item.PRECIO_VENTA))} c/u</div>
-                    <div className="display tabular" style={{ fontSize: 16, minWidth: 70, textAlign: 'right' }}>{fmtMoney(Number(item.PRECIO_VENTA) * Number(item.CANTIDAD))}</div>
-                  </>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
