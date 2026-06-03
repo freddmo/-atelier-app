@@ -219,6 +219,35 @@ export type LoteStock = {
   tieneCourier: boolean;
 };
 
+export type LoteEnCamino = {
+  LOTE_ID: string;
+  SKU: string;
+  NOMBRE_PRODUCTO: string;
+  TIPO_PRENDA: string;
+  TALLA: string;
+  LONGITUD: string;
+  COLOR: string;
+  CANT_DISPONIBLE: number;
+  COSTO_UNITARIO: number;
+  ESTADO_VIAJE: string;
+  TRACKING: string;
+  TRANSPORTE: string;
+  COURIER: string;
+  FECHA_SALIDA_EC: string;
+  eta: { fechaMin: string; fechaMax: string } | null;
+};
+
+export type Courier = {
+  COURIER: string;
+  TIPO_ESTIMADO: string;
+  DIAS_MIN: number;
+  DIAS_MAX: number;
+  DIA_SALIDA: string;
+  DIA_ENTREGA: string;
+  ACTIVA: string | boolean;
+  DIA_CORTE: string;
+};
+
 export type ItemCourier = {
   _rowNum: number;
   SKU: string;
@@ -358,6 +387,25 @@ export const api = {
   },
   async getStockDisponible(): Promise<LoteStock[]> {
     return apiCall<LoteStock[]>({ action: 'getStockDisponible' });
+  },
+  async getLotesEnCamino(): Promise<LoteEnCamino[]> {
+    return apiCall<LoteEnCamino[]>({ action: 'getLotesEnCamino' });
+  },
+  async getCouriers(): Promise<Courier[]> {
+    return apiCall<Courier[]>({ action: 'getCouriers' });
+  },
+  async avanzarLote(
+    params: { loteId: string; accion: 'LLEGO_FL' | 'DESPACHAR_EC' | 'LLEGO_EC'; courier?: string; fechaSalida?: string },
+    usuario: string
+  ) {
+    return apiCall<{ loteId: string; estadoAnterior: string; nuevoEstado: string; eta: { fechaMin: string; fechaMax: string } | null }>({
+      action: 'avanzarLote',
+      loteId: params.loteId,
+      accion: params.accion,
+      courier: params.courier || '',
+      fechaSalida: params.fechaSalida || '',
+      usuario,
+    });
   },
   async getClientes(): Promise<Cliente[]> {
     return apiCall<Cliente[]>({ action: 'getClientes' });
