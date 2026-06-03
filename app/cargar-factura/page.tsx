@@ -16,7 +16,6 @@ function fmtMoney(n: number) {
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-// Item de PEDIDO seleccionado (con su precio FIGS editable)
 type ItemPedidoSel = {
   ordenId: string;
   clienteNombre: string;
@@ -29,9 +28,8 @@ type ItemPedidoSel = {
   precioFIGS: number;
 };
 
-// Item de STOCK agregado a mano
 type ItemStock = {
-  id: number; // id temporal local
+  id: number;
   sku: string;
   talla: string;
   longitud: string;
@@ -41,6 +39,7 @@ type ItemStock = {
 };
 
 const LONGITUDES = ['Regular', 'Petite', 'Tall'];
+const TRANSPORTES = ['FEDEX', 'USPS', 'Otro'];
 
 export default function CargarFacturaPage() {
   const router = useRouter();
@@ -50,16 +49,18 @@ export default function CargarFacturaPage() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Datos de la factura
   const [numFactura, setNumFactura] = useState('');
   const [fecha, setFecha] = useState(today);
   const [iva, setIva] = useState('0');
   const [shipping, setShipping] = useState('0');
 
-  // Items de PEDIDO seleccionados
   const [itemsPedido, setItemsPedido] = useState<ItemPedidoSel[]>([]);
-  // Items de STOCK agregados
   const [itemsStock, setItemsStock] = useState<ItemStock[]>([]);
+
+  // ── NUEVO: viaje del stock ──
+  const [stockYaLlego, setStockYaLlego] = useState(false); // default: en camino
+  const [tracking, setTracking] = useState('');
+  const [transporte, setTransporte] = useState('FEDEX');
 
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState('');
@@ -87,7 +88,6 @@ export default function CargarFacturaPage() {
     }
   }
 
-  // ===== ITEMS DE PEDIDO =====
   function isItemPedidoSelected(ordenId: string, rowNum: number): boolean {
     return itemsPedido.some(i => i.ordenId === ordenId && i.rowNum === rowNum);
   }
@@ -121,7 +121,6 @@ export default function CargarFacturaPage() {
     ));
   }
 
-  // ===== ITEMS DE STOCK =====
   function addItemStock() {
     setItemsStock([...itemsStock, {
       id: Date.now(),
@@ -144,7 +143,6 @@ export default function CargarFacturaPage() {
     setItemsStock(itemsStock.filter(i => i.id !== id));
   }
 
-  // ===== CÁLCULOS =====
   const subtotalPedido = itemsPedido.reduce((s, i) => s + (i.precioFIGS || 0), 0);
   const subtotalStock = itemsStock.reduce((s, i) => s + (i.precioFIGS || 0) * (i.cantidad || 0), 0);
   const subtotal = subtotalPedido + subtotalStock;
@@ -153,13 +151,14 @@ export default function CargarFacturaPage() {
   const shippingNum = Number(shipping) || 0;
   const totalFactura = subtotal + ivaNum + shippingNum;
 
- function calcCosto(precioFIGS: number): number {
+  function calcCosto(precioFIGS: number): number {
     if (subtotal <= 0) return 0;
     const pct = precioFIGS / subtotal;
     return precioFIGS + ivaNum * pct + shippingNum * pct;
   }
 
   const totalItems = itemsPedido.length + itemsStock.length;
+  const hayStock = itemsStock.length > 0;
 
   async function handleSubmit() {
     if (totalItems === 0) {
@@ -174,14 +173,12 @@ export default function CargarFacturaPage() {
       alert('Ingresa el número de factura');
       return;
     }
-    // Validar items de stock completos
     for (const s of itemsStock) {
       if (!s.sku || !s.talla.trim() || !s.color.trim() || s.cantidad <= 0 || s.precioFIGS <= 0) {
         alert('Hay items de stock incompletos. Revisa SKU, talla, color, cantidad y precio.');
         return;
       }
     }
-    // Validar precios de pedido
     for (const p of itemsPedido) {
       if (p.precioFIGS <= 0) {
         alert(`Falta el precio FIGS de ${p.sku} (pedido ${p.ordenId})`);
@@ -223,17 +220,22 @@ export default function CargarFacturaPage() {
         shipping: shippingNum,
         numFactura: numFactura.trim(),
         fecha,
+        stockYaLlego: hayStock ? stockYaLlego : true,
+        tracking: (hayStock && !stockYaLlego) ? tracking.trim() : '',
+        transporte: (hayStock && !stockYaLlego) ? transporte : '',
       }, user.usuario);
 
       setToast(`✅ Factura ${numFactura} cargada: ${totalItems} items por ${fmtMoney(totalFactura)}`);
       setTimeout(() => setToast(''), 4000);
 
-      // Reset
       setItemsPedido([]);
       setItemsStock([]);
       setNumFactura('');
       setIva('0');
       setShipping('0');
+      setStockYaLlego(false);
+      setTracking('');
+      setTransporte('FEDEX');
       load();
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'desconocido'));
@@ -426,6 +428,47 @@ export default function CargarFacturaPage() {
               ))}
             </div>
           )}
+
+          {/* 3b. VIAJE DEL STOCK (solo si hay stock) */}
+          {hayStock && (
+            <div style={{ marginTop: 16, padding: 16, background: 'var(--bg)', borderRadius: 4, border: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                <div
+                  onClick={() => setStockYaLlego(!stockYaLlego)}
+                  style={{ width: 18, height: 18, borderRadius: 3, cursor: 'pointer', border: `1.5px solid ${stockYaLlego ? 'var(--text)' : 'var(--border)'}`, background: stockYaLlego ? 'var(--text)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 12 }}
+                >
+                  {stockYaLlego ? '✓' : ''}
+                </div>
+                <span style={{ fontSize: 13, cursor: 'pointer' }} onClick={() => setStockYaLlego(!stockYaLlego)}>
+                  Este stock <strong>ya llegó</strong> a bodega EC (disponible para vender)
+                </span>
+              </div>
+
+              {!stockYaLlego ? (
+                <div>
+                  <p style={{ fontSize: 11, color: 'var(--text-faint)', margin: '0 0 10px' }}>
+                    El stock nacerá <strong>en camino</strong> (Mildred lo verá en preventa). Pon el tracking del envío FIGS → bodega FL.
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Tracking (FEDEX/USPS)</label>
+                      <input className="input" value={tracking} onChange={(e) => setTracking(e.target.value)} placeholder="7712..." style={{ marginTop: 2, padding: '6px 10px', fontSize: 13 }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Transporte</label>
+                      <select className="input" value={transporte} onChange={(e) => setTransporte(e.target.value)} style={{ marginTop: 2, padding: '6px 10px', fontSize: 13 }}>
+                        {TRANSPORTES.map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p style={{ fontSize: 11, color: 'var(--text-faint)', margin: 0 }}>
+                  El stock entrará como <strong>disponible</strong> de una vez (ya está en bodega EC).
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* 4. TOTALES + PREVIEW */}
@@ -435,7 +478,6 @@ export default function CargarFacturaPage() {
               4. Resumen y preview
             </h3>
 
-            {/* Totales */}
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-soft)', marginBottom: 5 }}>
                 <span>Subtotal items ({totalItems})</span>
@@ -455,7 +497,6 @@ export default function CargarFacturaPage() {
               </div>
             </div>
 
-            {/* Preview por item */}
             {subtotal > 0 && (
               <div>
                 <div style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', marginBottom: 8 }}>Costo que se guardará por item</div>
