@@ -267,6 +267,20 @@ export type PedidoItemsCourier = {
   items: ItemCourier[];
 };
 
+export type Combo = {
+  COMBO_ID: string;
+  FECHA: string;
+  USUARIO: string;
+  superior: {
+    LOTE_ID: string; NOMBRE_PRODUCTO: string; TIPO_PRENDA: string;
+    TALLA: string; LONGITUD: string; COLOR: string;
+  };
+  inferior: {
+    LOTE_ID: string; NOMBRE_PRODUCTO: string; TIPO_PRENDA: string;
+    TALLA: string; LONGITUD: string; COLOR: string;
+  };
+};
+
 export const api = {
   async ping() {
     return apiCall<{ message: string }>({ action: 'ping' });
@@ -404,6 +418,24 @@ export const api = {
       accion: params.accion,
       courier: params.courier || '',
       fechaSalida: params.fechaSalida || '',
+      usuario,
+    });
+  },
+  async getCombos(): Promise<Combo[]> {
+    return apiCall<Combo[]>({ action: 'getCombos' });
+  },
+  async crearCombo(loteSuperior: string, loteInferior: string, usuario: string) {
+    return apiCall<{ comboId: string; loteSuperior: string; loteInferior: string }>({
+      action: 'crearCombo',
+      loteSuperior,
+      loteInferior,
+      usuario,
+    });
+  },
+  async borrarCombo(comboId: string, usuario: string) {
+    return apiCall<{ comboId: string; borrado: boolean }>({
+      action: 'borrarCombo',
+      comboId,
       usuario,
     });
   },
