@@ -90,22 +90,32 @@ export default function StockPage() {
     return a !== 'FALSE' && a !== 'NO' && a !== '0';
   });
 
-  // ===== Armador de sets =====
-  // Lotes que ya están usados en algún conjunto guardado
+  // ===== Lotes usados en combos (se filtran de las listas sueltas) =====
   const lotesEnCombos = new Set<string>();
   combos.forEach(c => {
     lotesEnCombos.add(c.superior.LOTE_ID);
     lotesEnCombos.add(c.inferior.LOTE_ID);
   });
 
-  const superiores = lotes.filter(l =>
-    ['TOP', 'CAMISA'].includes((l.TIPO_PRENDA || '').toUpperCase()) && !lotesEnCombos.has(l.LOTE_ID)
-  );
-  const inferiores = lotes.filter(l =>
-    (l.TIPO_PRENDA || '').toUpperCase() === 'PANTALON' && !lotesEnCombos.has(l.LOTE_ID)
-  );
-  const piezaSup = lotes.find(l => l.LOTE_ID === selSuperior);
-  const piezaInf = lotes.find(l => l.LOTE_ID === selInferior);
+  // Listas sueltas SIN las piezas que ya están en un combo
+  const lotesLibres = lotes.filter(l => !lotesEnCombos.has(l.LOTE_ID));
+  const caminoLibres = enCamino.filter(l => !lotesEnCombos.has(l.LOTE_ID));
+
+  // ===== Armador: ofrece piezas disponibles + en camino, sin las ya usadas =====
+  type OpcionPieza = { LOTE_ID: string; NOMBRE_PRODUCTO: string; TIPO_PRENDA: string; TALLA: string; LONGITUD: string; COLOR: string; enCamino: boolean };
+  const piezasParaArmar: OpcionPieza[] = [
+    ...lotes.map(l => ({ LOTE_ID: l.LOTE_ID, NOMBRE_PRODUCTO: l.NOMBRE_PRODUCTO, TIPO_PRENDA: l.TIPO_PRENDA, TALLA: l.TALLA, LONGITUD: l.LONGITUD, COLOR: l.COLOR, enCamino: false })),
+    ...enCamino.map(l => ({ LOTE_ID: l.LOTE_ID, NOMBRE_PRODUCTO: l.NOMBRE_PRODUCTO, TIPO_PRENDA: l.TIPO_PRENDA, TALLA: l.TALLA, LONGITUD: l.LONGITUD, COLOR: l.COLOR, enCamino: true })),
+  ].filter(p => !lotesEnCombos.has(p.LOTE_ID));
+
+  const superiores = piezasParaArmar.filter(p => ['TOP', 'CAMISA'].includes((p.TIPO_PRENDA || '').toUpperCase()));
+  const inferiores = piezasParaArmar.filter(p => (p.TIPO_PRENDA || '').toUpperCase() === 'PANTALON');
+  const piezaSup = piezasParaArmar.find(p => p.LOTE_ID === selSuperior);
+  const piezaInf = piezasParaArmar.find(p => p.LOTE_ID === selInferior);
+
+  function etiquetaOpcion(p: OpcionPieza) {
+    return `${p.NOMBRE_PRODUCTO} · ${p.TALLA} · ${p.COLOR}${p.enCamino ? ' · 🚚 en camino' : ''}`;
+  }
 
   async function guardarCombo() {
     if (!selSuperior || !selInferior) { alert('Elige una pieza superior y una inferior'); return; }
@@ -167,8 +177,8 @@ export default function StockPage() {
     doAccion(loteId, 'DESPACHAR_EC', despCourier, despFecha);
   }
 
-  const totalPiezas = lotes.reduce((s, l) => s + l.CANT_DISPONIBLE, 0);
-  const totalCamino = enCamino.reduce((s, l) => s + l.CANT_DISPONIBLE, 0);
+  const totalPiezas = lotesLibres.reduce((s, l) => s + l.CANT_DISPONIBLE, 0);
+  const totalCamino = caminoLibres.reduce((s, l) => s + l.CANT_DISPONIBLE, 0);
   const today = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
 
   const camCols = isAdmin ? 7 : 6;
@@ -184,7 +194,7 @@ export default function StockPage() {
               Stock<em style={{ color: 'var(--gold)' }}>.</em>
             </h1>
             <p style={{ color: 'var(--text-soft)', margin: '8px 0 0', fontSize: 13 }}>
-              {totalPiezas} disponible{totalPiezas !== 1 ? 's' : ''} · {totalCamino} en camino · {combos.length} conjunto{combos.length !== 1 ? 's' : ''} · {today}
+              {totalPiezas} suelto{totalPiezas !== 1 ? 's' : ''} · {totalCamino} en camino · {combos.length} conjunto{combos.length !== 1 ? 's' : ''} · {today}
             </p>
           </div>
           <div className="stock-actions" style={{ display: 'flex', gap: 8 }}>
@@ -208,23 +218,21 @@ export default function StockPage() {
         ) : (
           <>
             {/* ===== ARMADOR DE SETS ===== */}
-            {lotes.length > 0 && (
+            {piezasParaArmar.length > 0 && (
               <div className="card print-hide" style={{ padding: 24, marginBottom: 20 }}>
                 <h3 style={{ margin: '0 0 4px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
                   🧩 Armar un set
                 </h3>
                 <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '0 0 16px' }}>
-                  Combina una pieza superior con una inferior y guárdalo. Lo verán todos y sale en la impresión.
+                  Combina una pieza superior con una inferior y guárdalo. Puedes usar piezas disponibles o en camino.
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                   <div>
                     <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Pieza superior (top / camisa)</label>
                     <select className="input" value={selSuperior} onChange={(e) => setSelSuperior(e.target.value)} style={{ marginTop: 4 }}>
                       <option value="">— Elegir —</option>
-                      {superiores.map(l => (
-                        <option key={l.LOTE_ID} value={l.LOTE_ID}>
-                          {l.NOMBRE_PRODUCTO} · {l.TALLA} · {l.COLOR}
-                        </option>
+                      {superiores.map(p => (
+                        <option key={p.LOTE_ID} value={p.LOTE_ID}>{etiquetaOpcion(p)}</option>
                       ))}
                     </select>
                   </div>
@@ -232,10 +240,8 @@ export default function StockPage() {
                     <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Pieza inferior (pantalón)</label>
                     <select className="input" value={selInferior} onChange={(e) => setSelInferior(e.target.value)} style={{ marginTop: 4 }}>
                       <option value="">— Elegir —</option>
-                      {inferiores.map(l => (
-                        <option key={l.LOTE_ID} value={l.LOTE_ID}>
-                          {l.NOMBRE_PRODUCTO} · {l.TALLA} · {l.COLOR}
-                        </option>
+                      {inferiores.map(p => (
+                        <option key={p.LOTE_ID} value={p.LOTE_ID}>{etiquetaOpcion(p)}</option>
                       ))}
                     </select>
                   </div>
@@ -248,7 +254,7 @@ export default function StockPage() {
                       <div style={{ flex: 1, minWidth: 200 }}>
                         {piezaSup ? (
                           <>
-                            <div className="display" style={{ fontSize: 15 }}>{piezaSup.NOMBRE_PRODUCTO}</div>
+                            <div className="display" style={{ fontSize: 15 }}>{piezaSup.NOMBRE_PRODUCTO} {piezaSup.enCamino ? '🚚' : ''}</div>
                             <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>{piezaSup.TALLA} · {piezaSup.LONGITUD} · {piezaSup.COLOR}</div>
                           </>
                         ) : <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>(sin pieza superior)</span>}
@@ -257,7 +263,7 @@ export default function StockPage() {
                       <div style={{ flex: 1, minWidth: 200 }}>
                         {piezaInf ? (
                           <>
-                            <div className="display" style={{ fontSize: 15 }}>{piezaInf.NOMBRE_PRODUCTO}</div>
+                            <div className="display" style={{ fontSize: 15 }}>{piezaInf.NOMBRE_PRODUCTO} {piezaInf.enCamino ? '🚚' : ''}</div>
                             <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>{piezaInf.TALLA} · {piezaInf.LONGITUD} · {piezaInf.COLOR}</div>
                           </>
                         ) : <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>(sin pieza inferior)</span>}
@@ -276,49 +282,60 @@ export default function StockPage() {
               </div>
             )}
 
-            {/* ===== CONJUNTOS GUARDADOS ===== */}
+            {/* ===== CONJUNTOS ===== */}
             {combos.length > 0 && (
               <>
                 <h3 style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-                  Conjuntos guardados · <span className="tabular">{combos.length}</span>
+                  Conjuntos · <span className="tabular">{combos.length}</span>
                 </h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12, marginBottom: 28 }}>
-                  {combos.map(c => (
-                    <div key={c.COMBO_ID} className="card" style={{ padding: 16, position: 'relative' }}>
-                      <button
-                        className="btn print-hide"
-                        onClick={() => borrarComboFn(c.COMBO_ID)}
-                        disabled={deletingCombo === c.COMBO_ID}
-                        title="Borrar conjunto"
-                        style={{ position: 'absolute', top: 10, right: 10, padding: '3px 8px', fontSize: 11, color: 'var(--rose)' }}
-                      >
-                        {deletingCombo === c.COMBO_ID ? '…' : '✕'}
-                      </button>
-                      <div style={{ fontSize: 10, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
-                        Conjunto
+                  {combos.map(c => {
+                    const eta = fmtEta(c.eta);
+                    return (
+                      <div key={c.COMBO_ID} className="card" style={{ padding: 16, position: 'relative', borderColor: c.enCamino ? 'var(--amber)' : undefined }}>
+                        <button
+                          className="btn print-hide"
+                          onClick={() => borrarComboFn(c.COMBO_ID)}
+                          disabled={deletingCombo === c.COMBO_ID}
+                          title="Borrar conjunto"
+                          style={{ position: 'absolute', top: 10, right: 10, padding: '3px 8px', fontSize: 11, color: 'var(--rose)' }}
+                        >
+                          {deletingCombo === c.COMBO_ID ? '…' : '✕'}
+                        </button>
+
+                        {c.enCamino ? (
+                          <div style={{ fontSize: 10, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                            🚚 En camino{eta ? ` · llega ${eta}` : ''}
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 10, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                            Conjunto · listo
+                          </div>
+                        )}
+
+                        <div style={{ marginBottom: 8 }}>
+                          <div className="display" style={{ fontSize: 14 }}>{c.superior.NOMBRE_PRODUCTO} {c.superior.enCamino ? '🚚' : ''}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-soft)' }}>{c.superior.TALLA} · {c.superior.LONGITUD} · {c.superior.COLOR}</div>
+                        </div>
+                        <div style={{ fontSize: 13, color: c.enCamino ? 'var(--amber)' : 'var(--gold)', margin: '2px 0' }}>+</div>
+                        <div>
+                          <div className="display" style={{ fontSize: 14 }}>{c.inferior.NOMBRE_PRODUCTO} {c.inferior.enCamino ? '🚚' : ''}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text-soft)' }}>{c.inferior.TALLA} · {c.inferior.LONGITUD} · {c.inferior.COLOR}</div>
+                        </div>
                       </div>
-                      <div style={{ marginBottom: 8 }}>
-                        <div className="display" style={{ fontSize: 14 }}>{c.superior.NOMBRE_PRODUCTO}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-soft)' }}>{c.superior.TALLA} · {c.superior.LONGITUD} · {c.superior.COLOR}</div>
-                      </div>
-                      <div style={{ fontSize: 13, color: 'var(--gold)', margin: '2px 0' }}>+</div>
-                      <div>
-                        <div className="display" style={{ fontSize: 14 }}>{c.inferior.NOMBRE_PRODUCTO}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text-soft)' }}>{c.inferior.TALLA} · {c.inferior.LONGITUD} · {c.inferior.COLOR}</div>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </>
             )}
 
-            {/* ===== DISPONIBLE AHORA ===== */}
+            {/* ===== DISPONIBLE AHORA (sueltos) ===== */}
             <h3 style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-              Disponible ahora · <span className="tabular">{totalPiezas}</span>
+              Disponible suelto · <span className="tabular">{totalPiezas}</span>
             </h3>
-            {lotes.length === 0 ? (
+            {lotesLibres.length === 0 ? (
               <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text-faint)', marginBottom: 28 }}>
-                No hay stock disponible todavía.
+                No hay piezas sueltas disponibles.
               </div>
             ) : (
               <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 28 }}>
@@ -340,8 +357,8 @@ export default function StockPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {lotes.map((l, idx) => (
-                      <tr key={l.LOTE_ID} style={{ borderBottom: idx < lotes.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    {lotesLibres.map((l, idx) => (
+                      <tr key={l.LOTE_ID} style={{ borderBottom: idx < lotesLibres.length - 1 ? '1px solid var(--border)' : 'none' }}>
                         <td style={{ padding: '14px 16px' }}>
                           <div style={{ fontWeight: 500 }}>{l.NOMBRE_PRODUCTO}</div>
                           <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>{l.TIPO_PRENDA}</div>
@@ -369,13 +386,13 @@ export default function StockPage() {
               </div>
             )}
 
-            {/* ===== EN CAMINO (PREVENTA) ===== */}
+            {/* ===== EN CAMINO (PREVENTA, sueltos) ===== */}
             <h3 className="print-hide" style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-              🚚 En camino (preventa) · <span className="tabular">{totalCamino}</span>
+              🚚 En camino suelto · <span className="tabular">{totalCamino}</span>
             </h3>
-            {enCamino.length === 0 ? (
+            {caminoLibres.length === 0 ? (
               <div className="card print-hide" style={{ textAlign: 'center', padding: 40, color: 'var(--text-faint)' }}>
-                Nada en camino por ahora.
+                Nada suelto en camino por ahora.
               </div>
             ) : (
               <div className="card print-hide" style={{ padding: 0, overflow: 'hidden' }}>
@@ -394,13 +411,13 @@ export default function StockPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {enCamino.map((l, idx) => {
+                    {caminoLibres.map((l, idx) => {
                       const estado = (l.ESTADO_VIAJE || '').toUpperCase();
                       const eta = fmtEta(l.eta);
                       const enDespacho = despacharId === l.LOTE_ID;
                       return (
                         <>
-                          <tr key={l.LOTE_ID} style={{ borderBottom: (idx < enCamino.length - 1 && !enDespacho) ? '1px solid var(--border)' : 'none' }}>
+                          <tr key={l.LOTE_ID} style={{ borderBottom: (idx < caminoLibres.length - 1 && !enDespacho) ? '1px solid var(--border)' : 'none' }}>
                             <td style={{ padding: '14px 16px' }}>
                               <div style={{ fontWeight: 500 }}>{l.NOMBRE_PRODUCTO}</div>
                               <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>
@@ -448,7 +465,7 @@ export default function StockPage() {
                           </tr>
 
                           {isAdmin && enDespacho && (
-                            <tr key={l.LOTE_ID + '-desp'} style={{ borderBottom: idx < enCamino.length - 1 ? '1px solid var(--border)' : 'none', background: 'var(--bg)' }}>
+                            <tr key={l.LOTE_ID + '-desp'} style={{ borderBottom: idx < caminoLibres.length - 1 ? '1px solid var(--border)' : 'none', background: 'var(--bg)' }}>
                               <td colSpan={camCols} style={{ padding: '14px 16px' }}>
                                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
                                   <div>
@@ -483,7 +500,7 @@ export default function StockPage() {
         )}
 
         <div className="print-hide" style={{ marginTop: 16, fontSize: 11, color: 'var(--text-faint)' }}>
-          ⚠ = lote disponible sin courier cargado · La sección "En camino" es preventa (aún no llega).
+          ⚠ = lote disponible sin courier cargado · Las piezas que están en un conjunto no aparecen en las listas sueltas.
         </div>
       </div>
 
