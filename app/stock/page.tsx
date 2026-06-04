@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, LoteStock, LoteEnCamino, Courier } from '@/lib/api';
+import { api, LoteStock, LoteEnCamino, Courier, Combo } from '@/lib/api';
 import { auth } from '@/lib/auth';
 import Navbar from '@/components/Navbar';
 
@@ -38,17 +38,20 @@ export default function StockPage() {
   const [lotes, setLotes] = useState<LoteStock[]>([]);
   const [enCamino, setEnCamino] = useState<LoteEnCamino[]>([]);
   const [couriers, setCouriers] = useState<Courier[]>([]);
+  const [combos, setCombos] = useState<Combo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Armador de sets (solo visual)
+  // Armador de sets
   const [selSuperior, setSelSuperior] = useState('');
   const [selInferior, setSelInferior] = useState('');
+  const [savingCombo, setSavingCombo] = useState(false);
+  const [deletingCombo, setDeletingCombo] = useState('');
 
-  // Acciones admin
-  const [working, setWorking] = useState('');           // loteId en proceso
-  const [despacharId, setDespacharId] = useState('');    // lote que se está despachando
+  // Acciones admin (lotes en camino)
+  const [working, setWorking] = useState('');
+  const [despacharId, setDespacharId] = useState('');
   const [despCourier, setDespCourier] = useState('');
   const [despFecha, setDespFecha] = useState('');
 
@@ -65,14 +68,16 @@ export default function StockPage() {
     setLoading(true);
     setError('');
     try {
-      const [disp, camino, cours] = await Promise.all([
+      const [disp, camino, cours, combs] = await Promise.all([
         api.getStockDisponible(),
         api.getLotesEnCamino(),
         api.getCouriers().catch(() => [] as Courier[]),
+        api.getCombos().catch(() => [] as Combo[]),
       ]);
       setLotes(disp);
       setEnCamino(camino);
       setCouriers(cours);
+      setCombos(combs);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar');
     } finally {
@@ -80,7 +85,6 @@ export default function StockPage() {
     }
   }
 
-  // ===== Couriers activos para el selector =====
   const couriersActivos = couriers.filter(c => {
     const a = String(c.ACTIVA).toUpperCase().trim();
     return a !== 'FALSE' && a !== 'NO' && a !== '0';
@@ -92,7 +96,39 @@ export default function StockPage() {
   const piezaSup = lotes.find(l => l.LOTE_ID === selSuperior);
   const piezaInf = lotes.find(l => l.LOTE_ID === selInferior);
 
-  // ===== Acciones =====
+  async function guardarCombo() {
+    if (!selSuperior || !selInferior) { alert('Elige una pieza superior y una inferior'); return; }
+    const user = auth.getUser();
+    if (!user) return;
+    setSavingCombo(true);
+    try {
+      await api.crearCombo(selSuperior, selInferior, user.usuario);
+      setSelSuperior('');
+      setSelInferior('');
+      await load();
+    } catch (err) {
+      alert('Error: ' + (err instanceof Error ? err.message : 'desconocido'));
+    } finally {
+      setSavingCombo(false);
+    }
+  }
+
+  async function borrarComboFn(comboId: string) {
+    if (!confirm('¿Borrar este conjunto guardado?')) return;
+    const user = auth.getUser();
+    if (!user) return;
+    setDeletingCombo(comboId);
+    try {
+      await api.borrarCombo(comboId, user.usuario);
+      await load();
+    } catch (err) {
+      alert('Error: ' + (err instanceof Error ? err.message : 'desconocido'));
+    } finally {
+      setDeletingCombo('');
+    }
+  }
+
+  // ===== Acciones de lote en camino =====
   async function doAccion(loteId: string, accion: 'LLEGO_FL' | 'DESPACHAR_EC' | 'LLEGO_EC', courier = '', fechaSalida = '') {
     const user = auth.getUser();
     if (!user) return;
@@ -137,7 +173,7 @@ export default function StockPage() {
               Stock<em style={{ color: 'var(--gold)' }}>.</em>
             </h1>
             <p style={{ color: 'var(--text-soft)', margin: '8px 0 0', fontSize: 13 }}>
-              {totalPiezas} disponible{totalPiezas !== 1 ? 's' : ''} · {totalCamino} en camino · {today}
+              {totalPiezas} disponible{totalPiezas !== 1 ? 's' : ''} · {totalCamino} en camino · {combos.length} conjunto{combos.length !== 1 ? 's' : ''} · {today}
             </p>
           </div>
           <div className="stock-actions" style={{ display: 'flex', gap: 8 }}>
@@ -167,7 +203,7 @@ export default function StockPage() {
                   🧩 Armar un set
                 </h3>
                 <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '0 0 16px' }}>
-                  Combina una pieza superior con una inferior para mostrar un conjunto. Solo es visual.
+                  Combina una pieza superior con una inferior y guárdalo. Lo verán todos y sale en la impresión.
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                   <div>
@@ -196,7 +232,7 @@ export default function StockPage() {
 
                 {(piezaSup || piezaInf) && (
                   <div style={{ marginTop: 16, padding: 16, background: 'linear-gradient(to right, rgba(184,149,78,0.06), transparent)', border: '1px solid var(--gold)', borderRadius: 6 }}>
-                    <div style={{ fontSize: 11, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Conjunto</div>
+                    <div style={{ fontSize: 11, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Conjunto a guardar</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                       <div style={{ flex: 1, minWidth: 200 }}>
                         {piezaSup ? (
@@ -215,13 +251,54 @@ export default function StockPage() {
                           </>
                         ) : <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>(sin pieza inferior)</span>}
                       </div>
-                      <button className="btn" onClick={() => { setSelSuperior(''); setSelInferior(''); }} style={{ padding: '6px 12px', fontSize: 12 }}>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 14, justifyContent: 'flex-end' }}>
+                      <button className="btn" onClick={() => { setSelSuperior(''); setSelInferior(''); }} disabled={savingCombo} style={{ padding: '6px 12px', fontSize: 12 }}>
                         Limpiar
+                      </button>
+                      <button className="btn btn-primary" onClick={guardarCombo} disabled={savingCombo || !selSuperior || !selInferior} style={{ padding: '6px 14px', fontSize: 12 }}>
+                        {savingCombo ? 'Guardando…' : 'Guardar conjunto'}
                       </button>
                     </div>
                   </div>
                 )}
               </div>
+            )}
+
+            {/* ===== CONJUNTOS GUARDADOS ===== */}
+            {combos.length > 0 && (
+              <>
+                <h3 style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
+                  Conjuntos guardados · <span className="tabular">{combos.length}</span>
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12, marginBottom: 28 }}>
+                  {combos.map(c => (
+                    <div key={c.COMBO_ID} className="card" style={{ padding: 16, position: 'relative' }}>
+                      <button
+                        className="btn print-hide"
+                        onClick={() => borrarComboFn(c.COMBO_ID)}
+                        disabled={deletingCombo === c.COMBO_ID}
+                        title="Borrar conjunto"
+                        style={{ position: 'absolute', top: 10, right: 10, padding: '3px 8px', fontSize: 11, color: 'var(--rose)' }}
+                      >
+                        {deletingCombo === c.COMBO_ID ? '…' : '✕'}
+                      </button>
+                      <div style={{ fontSize: 10, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                        Conjunto
+                      </div>
+                      <div style={{ marginBottom: 8 }}>
+                        <div className="display" style={{ fontSize: 14 }}>{c.superior.NOMBRE_PRODUCTO}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-soft)' }}>{c.superior.TALLA} · {c.superior.LONGITUD} · {c.superior.COLOR}</div>
+                      </div>
+                      <div style={{ fontSize: 13, color: 'var(--gold)', margin: '2px 0' }}>+</div>
+                      <div>
+                        <div className="display" style={{ fontSize: 14 }}>{c.inferior.NOMBRE_PRODUCTO}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text-soft)' }}>{c.inferior.TALLA} · {c.inferior.LONGITUD} · {c.inferior.COLOR}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
 
             {/* ===== DISPONIBLE AHORA ===== */}
@@ -282,15 +359,15 @@ export default function StockPage() {
             )}
 
             {/* ===== EN CAMINO (PREVENTA) ===== */}
-            <h3 style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
+            <h3 className="print-hide" style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
               🚚 En camino (preventa) · <span className="tabular">{totalCamino}</span>
             </h3>
             {enCamino.length === 0 ? (
-              <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text-faint)' }}>
+              <div className="card print-hide" style={{ textAlign: 'center', padding: 40, color: 'var(--text-faint)' }}>
                 Nada en camino por ahora.
               </div>
             ) : (
-              <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+              <div className="card print-hide" style={{ padding: 0, overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
@@ -301,7 +378,7 @@ export default function StockPage() {
                       <th style={{ padding: '12px 8px', textAlign: 'left', fontSize: 11, fontWeight: 500, color: 'var(--text-soft)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Estado</th>
                       <th style={{ padding: '12px 8px', textAlign: 'left', fontSize: 11, fontWeight: 500, color: 'var(--text-soft)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Llega</th>
                       {isAdmin && (
-                        <th className="print-hide" style={{ padding: '12px 8px', textAlign: 'right', fontSize: 11, fontWeight: 500, color: 'var(--text-soft)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Acción</th>
+                        <th style={{ padding: '12px 8px', textAlign: 'right', fontSize: 11, fontWeight: 500, color: 'var(--text-soft)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Acción</th>
                       )}
                     </tr>
                   </thead>
@@ -339,7 +416,7 @@ export default function StockPage() {
                               )}
                             </td>
                             {isAdmin && (
-                              <td className="print-hide" style={{ padding: '14px 8px', textAlign: 'right' }}>
+                              <td style={{ padding: '14px 8px', textAlign: 'right' }}>
                                 {estado === 'EN TRANSITO A FL' && (
                                   <button className="btn" onClick={() => doAccion(l.LOTE_ID, 'LLEGO_FL')} disabled={working === l.LOTE_ID} style={{ padding: '5px 10px', fontSize: 11 }}>
                                     {working === l.LOTE_ID ? '…' : 'Llegó a FL'}
@@ -359,7 +436,6 @@ export default function StockPage() {
                             )}
                           </tr>
 
-                          {/* Fila expandida: formulario de despacho */}
                           {isAdmin && enDespacho && (
                             <tr key={l.LOTE_ID + '-desp'} style={{ borderBottom: idx < enCamino.length - 1 ? '1px solid var(--border)' : 'none', background: 'var(--bg)' }}>
                               <td colSpan={camCols} style={{ padding: '14px 16px' }}>
