@@ -271,13 +271,15 @@ export type Combo = {
   COMBO_ID: string;
   FECHA: string;
   USUARIO: string;
+  enCamino: boolean;
+  eta: { fechaMin: string; fechaMax: string } | null;
   superior: {
     LOTE_ID: string; NOMBRE_PRODUCTO: string; TIPO_PRENDA: string;
-    TALLA: string; LONGITUD: string; COLOR: string;
+    TALLA: string; LONGITUD: string; COLOR: string; enCamino: boolean;
   };
   inferior: {
     LOTE_ID: string; NOMBRE_PRODUCTO: string; TIPO_PRENDA: string;
-    TALLA: string; LONGITUD: string; COLOR: string;
+    TALLA: string; LONGITUD: string; COLOR: string; enCamino: boolean;
   };
 };
 
