@@ -91,8 +91,19 @@ export default function StockPage() {
   });
 
   // ===== Armador de sets =====
-  const superiores = lotes.filter(l => ['TOP', 'CAMISA'].includes((l.TIPO_PRENDA || '').toUpperCase()));
-  const inferiores = lotes.filter(l => (l.TIPO_PRENDA || '').toUpperCase() === 'PANTALON');
+  // Lotes que ya están usados en algún conjunto guardado
+  const lotesEnCombos = new Set<string>();
+  combos.forEach(c => {
+    lotesEnCombos.add(c.superior.LOTE_ID);
+    lotesEnCombos.add(c.inferior.LOTE_ID);
+  });
+
+  const superiores = lotes.filter(l =>
+    ['TOP', 'CAMISA'].includes((l.TIPO_PRENDA || '').toUpperCase()) && !lotesEnCombos.has(l.LOTE_ID)
+  );
+  const inferiores = lotes.filter(l =>
+    (l.TIPO_PRENDA || '').toUpperCase() === 'PANTALON' && !lotesEnCombos.has(l.LOTE_ID)
+  );
   const piezaSup = lotes.find(l => l.LOTE_ID === selSuperior);
   const piezaInf = lotes.find(l => l.LOTE_ID === selInferior);
 
