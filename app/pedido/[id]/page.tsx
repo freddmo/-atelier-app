@@ -103,7 +103,7 @@ export default function PedidoDetallePage() {
     }
   }
 
-  async function handleChangeState(nuevo: Estado, tipoEmpaque?: string, pines?: { regaloid: string; cantidad: number }[]) {
+  async function handleChangeState(nuevo: Estado, tipoEmpaque?: string, pines?: { regaloid: string; cantidad: number }[], cantidadCajas?: number) {
   if (!pedido) return;
   const user = auth.getUser();
   if (!user) return;
@@ -114,7 +114,7 @@ export default function PedidoDetallePage() {
       pedido!.items.map((i: any) => i._rowNum),
       nuevo,
       user!.usuario,
-      { forzar, tipoEmpaque, pines }
+      { forzar, tipoEmpaque, pines, cantidadCajas }
     );
     setShowModal(false);
     setToast(
