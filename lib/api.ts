@@ -475,4 +475,29 @@ export const api = {
       usuario,
     });
   },
+  async cambiarItemError(
+    params: {
+      ordenId: string; itemRowX: number;
+      skuStock: string; tallaStock: string; longitudStock: string; colorStock: string; costoStock?: number;
+      skuY?: string; tallaY?: string; longitudY?: string; colorY?: string; quitarCosto?: boolean;
+    },
+    usuario: string
+  ) {
+    return apiCall<{ ordenId: string; loteStock: any; cancelado: any; rePedido: any; costoQuitado: number }>({
+      action: 'cambiarItemError',
+      ordenId: params.ordenId,
+      itemRowX: String(params.itemRowX),
+      skuStock: params.skuStock,
+      tallaStock: params.tallaStock,
+      longitudStock: params.longitudStock || 'Regular',
+      colorStock: params.colorStock,
+      costoStock: params.costoStock !== undefined ? String(params.costoStock) : '',
+      skuY: params.skuY || '',
+      tallaY: params.tallaY || '',
+      longitudY: params.longitudY || '',
+      colorY: params.colorY || '',
+      quitarCosto: params.quitarCosto === false ? 'false' : 'true',
+      usuario,
+    });
+  },
 };
