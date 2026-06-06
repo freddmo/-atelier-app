@@ -9,6 +9,7 @@ import Navbar from '@/components/Navbar';
 import StateModal from '@/components/StateModal';
 import PaymentModal from '@/components/PaymentModal';
 import ItemsStateModal from '@/components/ItemsStateModal';
+import CambioItemModal from '@/components/CambioItemModal';
 
 function fmtMoney(n: number) {
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -78,6 +79,7 @@ export default function PedidoDetallePage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isBodega, setIsBodega] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
+  const [cambioItem, setCambioItem] = useState<any | null>(null);
 
   useEffect(() => {
     const user = auth.getUser();
@@ -510,25 +512,42 @@ export default function PedidoDetallePage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {pedido.items.map((item, idx) => {
               const info = origenInfo(origenDeItem(item, pedido!.costos));
+              const cancelado = estadoDeItem(item) === 'CANCELADO';
               return (
-                <div key={idx} style={{ display: 'grid', gridTemplateColumns: showMoney ? '24px 1fr auto auto auto' : '24px 1fr auto', gap: 16, alignItems: 'center', padding: 14, background: 'var(--bg)', borderRadius: 4 }}>
+                <div key={idx} style={{ display: 'grid', gridTemplateColumns: showMoney ? '24px 1fr auto auto auto' : '24px 1fr auto', gap: 16, alignItems: 'center', padding: 14, background: 'var(--bg)', borderRadius: 4, opacity: cancelado ? 0.6 : 1 }}>
                   <span className="display" style={{ fontSize: 18, fontWeight: 300, color: 'var(--text-faint)' }}>{String(idx + 1).padStart(2, '0')}</span>
                   <div style={{ minWidth: 0 }}>
-                    <div className="display" style={{ fontSize: 16, fontWeight: 400, marginBottom: 4 }}>{item.NOMBRE_PRODUCTO || item.SKU}</div>
+                    <div className="display" style={{ fontSize: 16, fontWeight: 400, marginBottom: 4, textDecoration: cancelado ? 'line-through' : 'none' }}>{item.NOMBRE_PRODUCTO || item.SKU}</div>
                     <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>
                       {item.TIPO_PRENDA} · Talla {item.TALLA} · {item.LONGITUD} · {item.COLOR}
                       {item.PARTE_DE_SET ? ` · ${item.PARTE_DE_SET}` : ''}
                     </div>
                     <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                      <span className="pill" style={{ fontSize: 10, padding: '3px 8px', background: itemEntregado(item) ? '#E6F4EA' : 'transparent', border: '1px solid var(--border)', color: itemEntregado(item) ? 'var(--green)' : 'var(--text-soft)' }}>
-                        {itemEntregado(item) ? '✓ ' : ''}{estadoDeItem(item)}
-                      </span>
-                      {info && (
+                      {cancelado ? (
+                        <span className="pill" style={{ fontSize: 10, padding: '3px 8px', background: 'var(--rose-bg)', border: '1px solid var(--rose)', color: 'var(--rose)' }}>
+                          ↩ Cambiado por error → en stock
+                        </span>
+                      ) : (
+                        <span className="pill" style={{ fontSize: 10, padding: '3px 8px', background: itemEntregado(item) ? '#E6F4EA' : 'transparent', border: '1px solid var(--border)', color: itemEntregado(item) ? 'var(--green)' : 'var(--text-soft)' }}>
+                          {itemEntregado(item) ? '✓ ' : ''}{estadoDeItem(item)}
+                        </span>
+                      )}
+                      {info && !cancelado && (
                         <span style={{ fontSize: 10, color: info.tipo === 'stock' ? 'var(--green)' : 'var(--text-faint)' }}>
                           {info.tipo === 'factura' ? `📄 Factura FIGS ${info.valor}`
                             : info.tipo === 'stock' ? `▣ De stock · ${info.valor}`
                             : info.valor}
                         </span>
+                      )}
+                      {puedeMover && !cancelado && !itemEntregado(item) && (
+                        <button
+                          onClick={() => setCambioItem(item)}
+                          className="btn"
+                          style={{ padding: '2px 8px', fontSize: 10 }}
+                          title="La clienta pidió esto pero llegó otra prenda"
+                        >
+                          ⇄ Cambiar por error
+                        </button>
                       )}
                     </div>
                   </div>
@@ -536,7 +555,7 @@ export default function PedidoDetallePage() {
                   {showMoney && (
                     <>
                       <div className="tabular hide-mobile" style={{ fontSize: 12, color: 'var(--text-soft)' }}>{fmtMoney(Number(item.PRECIO_VENTA))} c/u</div>
-                      <div className="display tabular" style={{ fontSize: 16, minWidth: 70, textAlign: 'right' }}>{fmtMoney(Number(item.PRECIO_VENTA) * Number(item.CANTIDAD))}</div>
+                      <div className="display tabular" style={{ fontSize: 16, minWidth: 70, textAlign: 'right', textDecoration: cancelado ? 'line-through' : 'none' }}>{fmtMoney(Number(item.PRECIO_VENTA) * Number(item.CANTIDAD))}</div>
                     </>
                   )}
                 </div>
@@ -603,6 +622,20 @@ export default function PedidoDetallePage() {
         />
       )}
 
+      {cambioItem && (
+        <CambioItemModal
+          ordenId={pedido.ORDEN_ID}
+          item={cambioItem}
+          onClose={() => setCambioItem(null)}
+          onDone={(msg) => {
+            setCambioItem(null);
+            setToast(msg);
+            setTimeout(() => setToast(''), 3500);
+            loadPedido();
+          }}
+        />
+      )}
+      
       {toast && (
         <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: 'var(--text)', color: 'var(--surface)', padding: '12px 22px', borderRadius: 4, fontSize: 13, zIndex: 100, boxShadow: '0 10px 30px rgba(0,0,0,0.15)' }}>
           {toast}
