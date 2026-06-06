@@ -8,13 +8,7 @@ type Props = {
   ordenId: string;
   estadoActual: Estado;
   onClose: () => void;
-  onChange: (nuevo: Estado, tipoEmpaque?: string, pines?: { regaloid: string; cantidad: number }[]) => Promise<void>;
-};
-
-type PinSeleccionado = {
-  regaloid: string;
-  nombre: string;
-  cantidad: number;
+  onChange: (nuevo: Estado, tipoEmpaque?: string, pines?: { regaloid: string; cantidad: number }[], cantidadCajas?: number) => Promise<void>;
 };
 
 export default function StateModal({ ordenId, estadoActual, onClose, onChange }: Props) {
@@ -22,11 +16,11 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
   const [setsEmpaque, setSetsEmpaque] = useState<SetEmpaque[]>([]);
   const [regalos, setRegalos] = useState<Regalo[]>([]);
   const [empaqueSeleccionado, setEmpaqueSeleccionado] = useState('');
+  const [cantidadCajas, setCantidadCajas] = useState(1);
   const [paso, setPaso] = useState<'estados' | 'empaque' | 'pines'>('estados');
   const [estadoPendiente, setEstadoPendiente] = useState<Estado | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Pin selección
   const [pinPrincipal, setPinPrincipal] = useState('');
   const [pinExtra, setPinExtra] = useState('');
   const [agregarExtra, setAgregarExtra] = useState(false);
@@ -37,10 +31,22 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
         setSetsEmpaque(sets);
         setRegalos(regs);
         if (sets.length > 0) setEmpaqueSeleccionado(sets[0].SET_ID);
-        if (regs.length > 0) setPinPrincipal(regs[0].REGALO_ID);
+        const conStock = regs.filter(r => Number(r.STOCK) > 0);
+        if (conStock.length > 0) setPinPrincipal(conStock[0].REGALO_ID);
       })
       .catch(() => {});
   }, []);
+
+  // Pines con stock disponible
+  const pinesConStock = regalos.filter(r => Number(r.STOCK) > 0);
+
+  // Para el pin EXTRA: excluye el principal si ya consumió todo su stock (stock 1)
+  const principalObj = regalos.find(r => r.REGALO_ID === pinPrincipal);
+  const pinesParaExtra = pinesConStock.filter(r => {
+    if (r.REGALO_ID !== pinPrincipal) return true;
+    // Mismo pin que el principal: solo disponible si tiene stock >= 2
+    return Number(r.STOCK) >= 2;
+  });
 
   async function handleClick(s: Estado, isCurrent: boolean, isPast: boolean) {
     if (isCurrent) return;
@@ -56,7 +62,7 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
     await onChange(s);
   }
 
-  async function confirmarConEmpaque() {
+  function confirmarConEmpaque() {
     if (!empaqueSeleccionado) return;
     setPaso('pines');
   }
@@ -66,26 +72,22 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
     setLoading(true);
     try {
       const pines: { regaloid: string; cantidad: number }[] = [];
-      const pinPrincipalObj = regalos.find(r => r.REGALO_ID === pinPrincipal);
-      if (pinPrincipalObj) pines.push({ regaloid: pinPrincipal, cantidad: 1 });
+      if (principalObj) pines.push({ regaloid: pinPrincipal, cantidad: 1 });
       if (agregarExtra && pinExtra) {
-        const pinExtraObj = regalos.find(r => r.REGALO_ID === pinExtra);
-        if (pinExtraObj) {
-          // Si es el mismo pin, suma la cantidad
-          const existente = pines.find(p => p.regaloid === pinExtra);
-          if (existente) existente.cantidad += 1;
-          else pines.push({ regaloid: pinExtra, cantidad: 1 });
-        }
+        const existente = pines.find(p => p.regaloid === pinExtra);
+        if (existente) existente.cantidad += 1;
+        else pines.push({ regaloid: pinExtra, cantidad: 1 });
       }
-      await onChange(estadoPendiente, empaqueSeleccionado, pines);
+      await onChange(estadoPendiente, empaqueSeleccionado, pines, cantidadCajas);
     } finally {
       setLoading(false);
     }
   }
 
-  // ── Paso: selección de empaque ────────────────────────────────────────────
+  // ── Paso: empaque ──
   if (paso === 'empaque') {
     const setElegido = setsEmpaque.find(s => s.SET_ID === empaqueSeleccionado);
+    const totalEmpaque = setElegido ? setElegido.costoTotal * cantidadCajas : 0;
     return (
       <div className="modal-bg" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
         <div className="modal-content" style={{ padding: 28, maxWidth: 420 }}>
@@ -95,7 +97,7 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
             <p style={{ color: 'var(--text-soft)', fontSize: 13, margin: '6px 0 0' }}>Paso 1 de 2</p>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
             {setsEmpaque.map(s => (
               <div
                 key={s.SET_ID}
@@ -104,12 +106,11 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
                   padding: '14px 16px', borderRadius: 4, cursor: 'pointer',
                   border: `1px solid ${empaqueSeleccionado === s.SET_ID ? 'var(--text)' : 'var(--border)'}`,
                   background: empaqueSeleccionado === s.SET_ID ? 'var(--bg)' : 'transparent',
-                  transition: 'all 0.15s',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <span style={{ fontSize: 14, fontWeight: empaqueSeleccionado === s.SET_ID ? 500 : 400 }}>{s.NOMBRE_SET}</span>
-                  <span className="tabular" style={{ fontSize: 14, color: 'var(--text-soft)' }}>${s.costoTotal.toFixed(2)}</span>
+                  <span className="tabular" style={{ fontSize: 14, color: 'var(--text-soft)' }}>${s.costoTotal.toFixed(2)} c/u</span>
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 4 }}>
                   {s.materiales.map(m => m.nombre).join(' · ')}
@@ -118,17 +119,21 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
             ))}
           </div>
 
+          {/* Cantidad de cajas */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--bg)', borderRadius: 4, marginBottom: 16 }}>
+            <span style={{ fontSize: 13 }}>Cantidad de cajas</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button className="btn" onClick={() => setCantidadCajas(Math.max(1, cantidadCajas - 1))} style={{ padding: '4px 12px', fontSize: 16 }}>−</button>
+              <span className="display tabular" style={{ fontSize: 18, minWidth: 24, textAlign: 'center' }}>{cantidadCajas}</span>
+              <button className="btn" onClick={() => setCantidadCajas(cantidadCajas + 1)} style={{ padding: '4px 12px', fontSize: 16 }}>+</button>
+            </div>
+          </div>
+
           {setElegido && (
             <div style={{ background: 'var(--bg)', padding: '12px 14px', borderRadius: 4, marginBottom: 16 }}>
-              {setElegido.materiales.map(m => (
-                <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '3px 0' }}>
-                  <span style={{ color: 'var(--text-soft)' }}>{m.nombre}</span>
-                  <span className="tabular">${m.costo.toFixed(2)}</span>
-                </div>
-              ))}
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 500, paddingTop: 8, marginTop: 4, borderTop: '1px solid var(--border)' }}>
-                <span>Total empaque</span>
-                <span className="tabular">${setElegido.costoTotal.toFixed(2)}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 500 }}>
+                <span>Total empaque ({cantidadCajas} caja{cantidadCajas !== 1 ? 's' : ''})</span>
+                <span className="tabular">${totalEmpaque.toFixed(2)}</span>
               </div>
             </div>
           )}
@@ -144,7 +149,7 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
     );
   }
 
-  // ── Paso: selección de pin ────────────────────────────────────────────────
+  // ── Paso: pines ──
   if (paso === 'pines') {
     const pinPrincipalObj = regalos.find(r => r.REGALO_ID === pinPrincipal);
     const pinExtraObj     = regalos.find(r => r.REGALO_ID === pinExtra);
@@ -161,16 +166,23 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 20 }}>
-            {/* Pin principal */}
             <div>
               <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Pin principal (×1)</label>
               <select
                 className="input"
                 value={pinPrincipal}
-                onChange={(e) => setPinPrincipal(e.target.value)}
+                onChange={(e) => {
+                  setPinPrincipal(e.target.value);
+                  // Si el extra quedó igual al nuevo principal y no hay stock para repetir, lo limpio
+                  if (pinExtra === e.target.value) {
+                    const r = regalos.find(x => x.REGALO_ID === e.target.value);
+                    if (r && Number(r.STOCK) < 2) setPinExtra('');
+                  }
+                }}
                 style={{ marginTop: 4 }}
               >
-                {regalos.map(r => (
+                {pinesConStock.length === 0 && <option value="">(sin pines en stock)</option>}
+                {pinesConStock.map(r => (
                   <option key={r.REGALO_ID} value={r.REGALO_ID}>
                     {r.NOMBRE} · stock: {r.STOCK}
                   </option>
@@ -178,12 +190,12 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
               </select>
             </div>
 
-            {/* Pin extra */}
             <div>
               <div
                 onClick={() => {
-                  setAgregarExtra(!agregarExtra);
-                  if (!pinExtra && regalos.length > 0) setPinExtra(regalos[0].REGALO_ID);
+                  const next = !agregarExtra;
+                  setAgregarExtra(next);
+                  if (next && !pinExtra && pinesParaExtra.length > 0) setPinExtra(pinesParaExtra[0].REGALO_ID);
                 }}
                 style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: agregarExtra ? 8 : 0 }}
               >
@@ -202,7 +214,8 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
                   value={pinExtra}
                   onChange={(e) => setPinExtra(e.target.value)}
                 >
-                  {regalos.map(r => (
+                  {pinesParaExtra.length === 0 && <option value="">(no hay otro pin disponible)</option>}
+                  {pinesParaExtra.map(r => (
                     <option key={r.REGALO_ID} value={r.REGALO_ID}>
                       {r.NOMBRE} · stock: {r.STOCK}
                     </option>
@@ -212,7 +225,6 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
             </div>
           </div>
 
-          {/* Resumen */}
           <div style={{ background: 'var(--bg)', padding: '12px 14px', borderRadius: 4, marginBottom: 16 }}>
             <div style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', marginBottom: 8 }}>Resumen</div>
             {pinPrincipalObj && (
@@ -244,7 +256,7 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
     );
   }
 
-  // ── Pantalla normal de estados ────────────────────────────────────────────
+  // ── Pantalla de estados ──
   return (
     <div className="modal-bg" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal-content" style={{ padding: 28 }}>
@@ -275,7 +287,6 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
                   background: isCurrent ? 'var(--bg)' : 'transparent',
                   border: `1px solid ${borderColor}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  transition: 'all 0.15s',
                 }}
                 onMouseEnter={(e) => { if (!isCurrent) e.currentTarget.style.background = 'var(--bg)'; }}
                 onMouseLeave={(e) => { if (!isCurrent) e.currentTarget.style.background = 'transparent'; }}
