@@ -265,6 +265,41 @@ export default function PedidoDetallePage() {
           </div>
         </div>
 
+        {/* ESTADO DE PAGO — visible para todos (Sebastián incluido) */}
+        <div className="card" style={{
+          padding: '18px 24px',
+          marginBottom: 20,
+          background: saldo > 0.005 ? 'var(--rose-bg)' : '#E6F4EA',
+          borderColor: saldo > 0.005 ? 'var(--rose)' : 'var(--green)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontSize: 22, color: saldo > 0.005 ? 'var(--rose)' : 'var(--green)' }}>
+                {saldo > 0.005 ? '●' : '✓'}
+              </span>
+              <div>
+                <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 500, color: saldo > 0.005 ? 'var(--rose)' : 'var(--green)' }}>
+                  {saldo > 0.005 ? 'Saldo pendiente · el cliente debe' : 'Pagado en su totalidad'}
+                </div>
+                {saldo > 0.005 && (
+                  <div className="display tabular" style={{ fontSize: 26, color: 'var(--rose)', lineHeight: 1.15 }}>
+                    {fmtMoney(saldo)}
+                  </div>
+                )}
+              </div>
+            </div>
+            {pedido.ESTATUS_ENVIO === 'LISTO PARA ENVIAR' && (
+              <button
+                className="btn"
+                onClick={generarMensajeWhatsApp}
+                style={{ background: '#25D366', color: 'white', border: 'none' }}
+              >
+                💬 Copiar cobro WhatsApp
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* TRACKING */}
         <div className="card" style={{ padding: 28, marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
