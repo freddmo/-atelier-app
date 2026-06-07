@@ -97,7 +97,6 @@ export default function StockPage() {
     lotesEnCombos.add(c.inferior.LOTE_ID);
   });
 
-  // Listas sueltas SIN las piezas que ya están en un combo
   const lotesLibres = lotes.filter(l => !lotesEnCombos.has(l.LOTE_ID));
   const caminoLibres = enCamino.filter(l => !lotesEnCombos.has(l.LOTE_ID));
 
@@ -149,7 +148,6 @@ export default function StockPage() {
     }
   }
 
-  // ===== Acciones de lote en camino =====
   async function doAccion(loteId: string, accion: 'LLEGO_FL' | 'DESPACHAR_EC' | 'LLEGO_EC', courier = '', fechaSalida = '') {
     const user = auth.getUser();
     if (!user) return;
@@ -180,8 +178,6 @@ export default function StockPage() {
   const totalPiezas = lotesLibres.reduce((s, l) => s + l.CANT_DISPONIBLE, 0);
   const totalCamino = caminoLibres.reduce((s, l) => s + l.CANT_DISPONIBLE, 0);
   const today = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-
-  const camCols = isAdmin ? 7 : 6;
 
   return (
     <>
@@ -329,7 +325,7 @@ export default function StockPage() {
               </>
             )}
 
-            {/* ===== DISPONIBLE AHORA (sueltos) ===== */}
+            {/* ===== DISPONIBLE SUELTO (tarjetas) ===== */}
             <h3 style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
               Disponible suelto · <span className="tabular">{totalPiezas}</span>
             </h3>
@@ -338,55 +334,37 @@ export default function StockPage() {
                 No hay piezas sueltas disponibles.
               </div>
             ) : (
-              <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 28 }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 500, color: 'var(--text-soft)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Producto</th>
-                      <th style={{ padding: '12px 8px', textAlign: 'left', fontSize: 11, fontWeight: 500, color: 'var(--text-soft)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Talla</th>
-                      <th style={{ padding: '12px 8px', textAlign: 'left', fontSize: 11, fontWeight: 500, color: 'var(--text-soft)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Longitud</th>
-                      <th style={{ padding: '12px 8px', textAlign: 'left', fontSize: 11, fontWeight: 500, color: 'var(--text-soft)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Color</th>
-                      <th style={{ padding: '12px 8px', textAlign: 'right', fontSize: 11, fontWeight: 500, color: 'var(--text-soft)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Cant.</th>
-                      {isAdmin && (
-                        <>
-                          <th className="print-hide" style={{ padding: '12px 8px', textAlign: 'left', fontSize: 11, fontWeight: 500, color: 'var(--text-soft)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Lote</th>
-                          <th className="print-hide" style={{ padding: '12px 8px', textAlign: 'right', fontSize: 11, fontWeight: 500, color: 'var(--text-soft)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Costo unit.</th>
-                        </>
-                      )}
-                      <th className="print-hide" style={{ padding: '12px 8px', textAlign: 'left', fontSize: 11, fontWeight: 500, color: 'var(--text-soft)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Entrada</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {lotesLibres.map((l, idx) => (
-                      <tr key={l.LOTE_ID} style={{ borderBottom: idx < lotesLibres.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                        <td style={{ padding: '14px 16px' }}>
-                          <div style={{ fontWeight: 500 }}>{l.NOMBRE_PRODUCTO}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>{l.TIPO_PRENDA}</div>
-                        </td>
-                        <td style={{ padding: '14px 8px' }} className="mono">{l.TALLA}</td>
-                        <td style={{ padding: '14px 8px' }}>{l.LONGITUD}</td>
-                        <td style={{ padding: '14px 8px' }}>{l.COLOR}</td>
-                        <td style={{ padding: '14px 8px', textAlign: 'right' }} className="tabular">
-                          <span style={{ fontSize: 16, fontWeight: 500 }}>{l.CANT_DISPONIBLE}</span>
-                          {!l.tieneCourier && (
-                            <span title="Sin courier cargado todavía" style={{ marginLeft: 6, color: 'var(--amber)' }}>⚠</span>
-                          )}
-                        </td>
-                        {isAdmin && (
-                          <>
-                            <td className="mono print-hide" style={{ padding: '14px 8px', fontSize: 11, color: 'var(--text-faint)' }}>{l.LOTE_ID}</td>
-                            <td className="tabular print-hide" style={{ padding: '14px 8px', textAlign: 'right', fontSize: 12, color: 'var(--text-soft)' }}>{fmtMoney(l.COSTO_UNITARIO)}</td>
-                          </>
-                        )}
-                        <td className="print-hide" style={{ padding: '14px 8px', fontSize: 12, color: 'var(--text-soft)' }}>{fmtDate(l.FECHA_ENTRADA)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12, marginBottom: 28 }}>
+                {lotesLibres.map(l => (
+                  <div key={l.LOTE_ID} className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', borderColor: !l.tieneCourier ? 'var(--amber)' : undefined }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                      <span style={{ fontSize: 10, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{l.TIPO_PRENDA || 'Pieza'}</span>
+                      <span className="tabular" style={{ fontSize: 13, fontWeight: 500 }}>
+                        {l.CANT_DISPONIBLE > 1 ? `×${l.CANT_DISPONIBLE}` : ''}
+                        {!l.tieneCourier && <span title="Sin courier cargado todavía" style={{ marginLeft: 6, color: 'var(--amber)' }}>⚠</span>}
+                      </span>
+                    </div>
+
+                    <div className="display" style={{ fontSize: 15, marginBottom: 3 }}>{l.NOMBRE_PRODUCTO}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-soft)', marginBottom: 12 }}>
+                      <span className="mono">{l.TALLA}</span> · {l.LONGITUD} · {l.COLOR}
+                    </div>
+
+                    <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--text-faint)' }}>
+                      <span>{fmtDate(l.FECHA_ENTRADA)}</span>
+                      {isAdmin && <span className="mono print-hide">{l.LOTE_ID}</span>}
+                    </div>
+                    {isAdmin && (
+                      <div className="tabular print-hide" style={{ fontSize: 12, color: 'var(--text-soft)', marginTop: 4, textAlign: 'right' }}>
+                        {fmtMoney(l.COSTO_UNITARIO)}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
 
-            {/* ===== EN CAMINO (PREVENTA, sueltos) ===== */}
+            {/* ===== EN CAMINO SUELTO (tarjetas) ===== */}
             <h3 className="print-hide" style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
               🚚 En camino suelto · <span className="tabular">{totalCamino}</span>
             </h3>
@@ -395,105 +373,86 @@ export default function StockPage() {
                 Nada suelto en camino por ahora.
               </div>
             ) : (
-              <div className="card print-hide" style={{ padding: 0, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 11, fontWeight: 500, color: 'var(--text-soft)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Producto</th>
-                      <th style={{ padding: '12px 8px', textAlign: 'left', fontSize: 11, fontWeight: 500, color: 'var(--text-soft)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Talla</th>
-                      <th style={{ padding: '12px 8px', textAlign: 'left', fontSize: 11, fontWeight: 500, color: 'var(--text-soft)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Color</th>
-                      <th style={{ padding: '12px 8px', textAlign: 'right', fontSize: 11, fontWeight: 500, color: 'var(--text-soft)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Cant.</th>
-                      <th style={{ padding: '12px 8px', textAlign: 'left', fontSize: 11, fontWeight: 500, color: 'var(--text-soft)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Estado</th>
-                      <th style={{ padding: '12px 8px', textAlign: 'left', fontSize: 11, fontWeight: 500, color: 'var(--text-soft)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Llega</th>
-                      {isAdmin && (
-                        <th style={{ padding: '12px 8px', textAlign: 'right', fontSize: 11, fontWeight: 500, color: 'var(--text-soft)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Acción</th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {caminoLibres.map((l, idx) => {
-                      const estado = (l.ESTADO_VIAJE || '').toUpperCase();
-                      const eta = fmtEta(l.eta);
-                      const enDespacho = despacharId === l.LOTE_ID;
-                      return (
-                        <>
-                          <tr key={l.LOTE_ID} style={{ borderBottom: (idx < caminoLibres.length - 1 && !enDespacho) ? '1px solid var(--border)' : 'none' }}>
-                            <td style={{ padding: '14px 16px' }}>
-                              <div style={{ fontWeight: 500 }}>{l.NOMBRE_PRODUCTO}</div>
-                              <div style={{ fontSize: 11, color: 'var(--text-faint)' }}>
-                                {l.TIPO_PRENDA}
-                                {isAdmin && l.TRACKING ? ` · ${l.TRANSPORTE || ''} ${l.TRACKING}` : ''}
-                              </div>
-                            </td>
-                            <td style={{ padding: '14px 8px' }} className="mono">{l.TALLA}</td>
-                            <td style={{ padding: '14px 8px' }}>{l.COLOR}</td>
-                            <td style={{ padding: '14px 8px', textAlign: 'right' }} className="tabular">
-                              <span style={{ fontSize: 16, fontWeight: 500 }}>{l.CANT_DISPONIBLE}</span>
-                            </td>
-                            <td style={{ padding: '14px 8px' }}>
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: estadoColor(estado) }} />
-                                {l.ESTADO_VIAJE}
-                              </span>
-                            </td>
-                            <td style={{ padding: '14px 8px', fontSize: 13 }}>
-                              {eta ? (
-                                <span className="tabular" style={{ color: 'var(--gold)', fontWeight: 500 }}>{eta}</span>
-                              ) : (
-                                <span style={{ color: 'var(--text-faint)' }}>por despachar</span>
-                              )}
-                            </td>
-                            {isAdmin && (
-                              <td style={{ padding: '14px 8px', textAlign: 'right' }}>
-                                {estado === 'EN TRANSITO A FL' && (
-                                  <button className="btn" onClick={() => doAccion(l.LOTE_ID, 'LLEGO_FL')} disabled={working === l.LOTE_ID} style={{ padding: '5px 10px', fontSize: 11 }}>
-                                    {working === l.LOTE_ID ? '…' : 'Llegó a FL'}
-                                  </button>
-                                )}
-                                {estado === 'EN BODEGA FL' && !enDespacho && (
-                                  <button className="btn btn-primary" onClick={() => openDespachar(l.LOTE_ID)} disabled={working === l.LOTE_ID} style={{ padding: '5px 10px', fontSize: 11 }}>
-                                    Despachar a EC
-                                  </button>
-                                )}
-                                {estado === 'EN CAMINO A EC' && (
-                                  <button className="btn" onClick={() => doAccion(l.LOTE_ID, 'LLEGO_EC')} disabled={working === l.LOTE_ID} style={{ padding: '5px 10px', fontSize: 11 }}>
-                                    {working === l.LOTE_ID ? '…' : 'Llegó a EC'}
-                                  </button>
-                                )}
-                              </td>
-                            )}
-                          </tr>
+              <div className="print-hide" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+                {caminoLibres.map(l => {
+                  const estado = (l.ESTADO_VIAJE || '').toUpperCase();
+                  const eta = fmtEta(l.eta);
+                  const enDespacho = despacharId === l.LOTE_ID;
+                  return (
+                    <div key={l.LOTE_ID} className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', borderColor: estadoColor(estado) }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: estadoColor(estado), textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: estadoColor(estado) }} />
+                        🚚 {l.ESTADO_VIAJE}
+                      </div>
 
-                          {isAdmin && enDespacho && (
-                            <tr key={l.LOTE_ID + '-desp'} style={{ borderBottom: idx < caminoLibres.length - 1 ? '1px solid var(--border)' : 'none', background: 'var(--bg)' }}>
-                              <td colSpan={camCols} style={{ padding: '14px 16px' }}>
-                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, flexWrap: 'wrap' }}>
-                                  <div>
-                                    <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Courier</label>
-                                    <select className="input" value={despCourier} onChange={(e) => setDespCourier(e.target.value)} style={{ marginTop: 2, padding: '6px 10px', fontSize: 13 }}>
-                                      {couriersActivos.length === 0 && <option value="">(sin couriers)</option>}
-                                      {couriersActivos.map(c => <option key={c.COURIER} value={c.COURIER}>{c.COURIER}</option>)}
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Fecha de salida</label>
-                                    <input type="date" className="input" value={despFecha} onChange={(e) => setDespFecha(e.target.value)} style={{ marginTop: 2, padding: '6px 10px', fontSize: 13 }} />
-                                  </div>
-                                  <button className="btn btn-primary" onClick={() => confirmDespachar(l.LOTE_ID)} disabled={working === l.LOTE_ID} style={{ padding: '7px 14px', fontSize: 12 }}>
-                                    {working === l.LOTE_ID ? 'Despachando…' : 'Confirmar despacho'}
-                                  </button>
-                                  <button className="btn" onClick={() => setDespacharId('')} disabled={working === l.LOTE_ID} style={{ padding: '7px 14px', fontSize: 12 }}>
-                                    Cancelar
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
+                      <div className="display" style={{ fontSize: 15, marginBottom: 3 }}>{l.NOMBRE_PRODUCTO}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-soft)', marginBottom: 4 }}>
+                        <span className="mono">{l.TALLA}</span> · {l.LONGITUD} · {l.COLOR}
+                        {l.CANT_DISPONIBLE > 1 ? ` · ×${l.CANT_DISPONIBLE}` : ''}
+                      </div>
+
+                      <div style={{ fontSize: 12, marginBottom: 10 }}>
+                        {eta ? (
+                          <span className="tabular" style={{ color: 'var(--gold)', fontWeight: 500 }}>Llega {eta}</span>
+                        ) : (
+                          <span style={{ color: 'var(--text-faint)' }}>Por despachar</span>
+                        )}
+                      </div>
+
+                      {isAdmin && (
+                        <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 10 }}>
+                          <span className="mono">{l.LOTE_ID}</span>
+                          {l.TRACKING ? <> · {l.TRANSPORTE || ''} {l.TRACKING}</> : ''}
+                          {' · '}<span className="tabular">{fmtMoney(l.COSTO_UNITARIO)}</span>
+                        </div>
+                      )}
+
+                      {isAdmin && (
+                        <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                          {estado === 'EN TRANSITO A FL' && (
+                            <button className="btn" onClick={() => doAccion(l.LOTE_ID, 'LLEGO_FL')} disabled={working === l.LOTE_ID} style={{ width: '100%', justifyContent: 'center', padding: '7px 10px', fontSize: 12 }}>
+                              {working === l.LOTE_ID ? '…' : 'Llegó a FL'}
+                            </button>
                           )}
-                        </>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                          {estado === 'EN BODEGA FL' && !enDespacho && (
+                            <button className="btn btn-primary" onClick={() => openDespachar(l.LOTE_ID)} disabled={working === l.LOTE_ID} style={{ width: '100%', justifyContent: 'center', padding: '7px 10px', fontSize: 12 }}>
+                              Despachar a EC
+                            </button>
+                          )}
+                          {estado === 'EN CAMINO A EC' && (
+                            <button className="btn" onClick={() => doAccion(l.LOTE_ID, 'LLEGO_EC')} disabled={working === l.LOTE_ID} style={{ width: '100%', justifyContent: 'center', padding: '7px 10px', fontSize: 12 }}>
+                              {working === l.LOTE_ID ? '…' : 'Llegó a EC'}
+                            </button>
+                          )}
+
+                          {enDespacho && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+                              <div>
+                                <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Courier</label>
+                                <select className="input" value={despCourier} onChange={(e) => setDespCourier(e.target.value)} style={{ marginTop: 2, padding: '6px 10px', fontSize: 13 }}>
+                                  {couriersActivos.length === 0 && <option value="">(sin couriers)</option>}
+                                  {couriersActivos.map(c => <option key={c.COURIER} value={c.COURIER}>{c.COURIER}</option>)}
+                                </select>
+                              </div>
+                              <div>
+                                <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Fecha de salida</label>
+                                <input type="date" className="input" value={despFecha} onChange={(e) => setDespFecha(e.target.value)} style={{ marginTop: 2, padding: '6px 10px', fontSize: 13 }} />
+                              </div>
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                <button className="btn" onClick={() => setDespacharId('')} disabled={working === l.LOTE_ID} style={{ flex: 1, justifyContent: 'center', padding: '6px 10px', fontSize: 12 }}>
+                                  Cancelar
+                                </button>
+                                <button className="btn btn-primary" onClick={() => confirmDespachar(l.LOTE_ID)} disabled={working === l.LOTE_ID} style={{ flex: 1, justifyContent: 'center', padding: '6px 10px', fontSize: 12 }}>
+                                  {working === l.LOTE_ID ? '…' : 'Confirmar'}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </>
