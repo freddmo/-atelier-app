@@ -5,7 +5,7 @@ import { api } from '@/lib/api';
 import { Producto } from '@/lib/types';
 import { auth } from '@/lib/auth';
 
-const LONGITUDES = ['Regular', 'Petite', 'Tall'];
+const LONGITUDES = ['Regular', 'Petite', 'Tall']; 
 
 type ItemX = {
   _rowNum: number;
