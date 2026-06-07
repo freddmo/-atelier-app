@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react'; 
 import { useRouter } from 'next/navigation';
 import { api, LoteStock, LoteEnCamino, Courier, Combo } from '@/lib/api';
 import { auth } from '@/lib/auth';
