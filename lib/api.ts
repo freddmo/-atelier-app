@@ -267,20 +267,26 @@ export type PedidoItemsCourier = {
   items: ItemCourier[];
 };
 
+export type ComboPieza = {
+  LOTE_ID: string;
+  NOMBRE_PRODUCTO: string;
+  TIPO_PRENDA: string;
+  TALLA: string;
+  LONGITUD: string;
+  COLOR: string;
+  enCamino: boolean;
+  ESTADO_VIAJE: string;
+  eta: { fechaMin: string; fechaMax: string } | null;
+};
+
 export type Combo = {
   COMBO_ID: string;
   FECHA: string;
   USUARIO: string;
   enCamino: boolean;
   eta: { fechaMin: string; fechaMax: string } | null;
-  superior: {
-    LOTE_ID: string; NOMBRE_PRODUCTO: string; TIPO_PRENDA: string;
-    TALLA: string; LONGITUD: string; COLOR: string; enCamino: boolean;
-  };
-  inferior: {
-    LOTE_ID: string; NOMBRE_PRODUCTO: string; TIPO_PRENDA: string;
-    TALLA: string; LONGITUD: string; COLOR: string; enCamino: boolean;
-  };
+  superior: ComboPieza;
+  inferior: ComboPieza;
 };
 
 export const api = {
