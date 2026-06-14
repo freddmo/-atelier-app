@@ -506,10 +506,13 @@ export const api = {
       usuario,
     });
   },
-  async getGananciaPorTipo() {
+  async getGananciaPorTipo(fechaInicio?: string, fechaFin?: string) {
+    const params: Record<string, string> = { action: 'getGananciaPorTipo' };
+    if (fechaInicio) params.fechaInicio = fechaInicio;
+    if (fechaFin) params.fechaFin = fechaFin;
     return apiCall<{
       stock: { ventas: number; venta: number; costo: number; ganancia: number };
       pedido: { ventas: number; venta: number; costo: number; ganancia: number };
-    }>({ action: 'getGananciaPorTipo' });
+    }>(params);
   }, 
 };
