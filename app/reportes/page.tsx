@@ -189,7 +189,7 @@ export default function ReportesPage() {
                 <tr style={{ background: 'var(--bg)' }}>
                   <th style={{ textAlign: 'left', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>ID</th>
                   <th style={{ textAlign: 'left', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Cliente / Concepto</th>
-                  <th style={{ textAlign: 'left', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Fecha</th>
+                  <th style={{ textAlign: 'left', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Entrega</th>
                   <th style={{ textAlign: 'right', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Venta</th>
                   <th style={{ textAlign: 'right', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Costos</th>
                   <th style={{ textAlign: 'right', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Ganancia</th>
@@ -202,7 +202,7 @@ export default function ReportesPage() {
                     <tr key={p.ORDEN_ID} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }} onClick={() => router.push(`/pedido/${encodeURIComponent(p.ORDEN_ID)}`)}>
                       <td style={{ padding: '14px 20px' }} className="mono">{p.ORDEN_ID}</td>
                       <td style={{ padding: '14px 20px' }} className="display">{p.NOMBRE}</td>
-                      <td style={{ padding: '14px 20px', color: 'var(--text-soft)' }}>{fmtDateShort(p.F_ORDEN)}</td>
+                      <td style={{ padding: '14px 20px', color: 'var(--text-soft)' }}>{fmtDateShort(String((p as { F_ENTREGA_REAL?: string }).F_ENTREGA_REAL || '').slice(0, 10))}</td>
                       <td style={{ padding: '14px 20px', textAlign: 'right' }} className="tabular">{fmtMoney(p.totales.venta)}</td>
                       <td style={{ padding: '14px 20px', textAlign: 'right', color: 'var(--text-soft)' }} className="tabular">{fmtMoney(p.totales.costos)}</td>
                       <td style={{ padding: '14px 20px', textAlign: 'right', fontWeight: 500 }} className="tabular">
