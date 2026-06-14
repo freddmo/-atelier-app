@@ -67,8 +67,11 @@ export default function ReportesPage() {
   }
 
   const filtered = pedidos.filter(p => {
-    if (!p.F_ORDEN) return false;
-    return p.F_ORDEN >= fechaInicio && p.F_ORDEN <= fechaFin;
+    const estado = String(p.ESTATUS_ENVIO || '').toUpperCase().trim();
+    if (estado !== 'ENTREGADO') return false;
+    const fEntrega = String((p as { F_ENTREGA_REAL?: string }).F_ENTREGA_REAL || '').slice(0, 10);
+    if (!fEntrega) return false;
+    return fEntrega >= fechaInicio && fEntrega <= fechaFin;
   });
 
   const totalVenta = filtered.reduce((a, p) => a + p.totales.venta, 0);
