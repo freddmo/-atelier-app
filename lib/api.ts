@@ -506,4 +506,10 @@ export const api = {
       usuario,
     });
   },
+  async getGananciaPorTipo() {
+    return apiCall<{
+      stock: { piezas: number; venta: number; costo: number; ganancia: number };
+      pedido: { piezas: number; venta: number; costo: number; ganancia: number };
+    }>({ action: 'getGananciaPorTipo' });
+  },
 };
