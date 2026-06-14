@@ -63,8 +63,7 @@ export default function ReportesPage() {
   const totalVenta = filtered.reduce((a, p) => a + p.totales.venta, 0);
   const totalCostos = filtered.reduce((a, p) => a + p.totales.costos, 0);
   const ganancia = totalVenta - totalCostos;
-  const margen = totalVenta > 0 ? (ganancia / totalVenta * 100) : 0;
-  const promedio = filtered.length > 0 ? totalVenta / filtered.length : 0;
+  const gananciaPorOrden = filtered.length > 0 ? ganancia / filtered.length : 0;
 
   function setQuickRange(range: 'hoy' | 'semana' | 'mes') {
     const t = new Date();
@@ -106,24 +105,20 @@ export default function ReportesPage() {
               {[
                 { label: 'Ganancia · Pedidos', d: gananciaTipo.pedido, color: 'var(--blue)' },
                 { label: 'Ganancia · Stock', d: gananciaTipo.stock, color: 'var(--amber)' },
-              ].map(({ label, d, color }) => {
-                const margenTipo = d.venta > 0 ? (d.ganancia / d.venta * 100) : 0;
-                return (
-                  <div key={label} className="card" style={{ padding: 24, borderTop: `3px solid ${color}` }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
-                      {label} · <span className="tabular">{d.ventas}</span> venta{d.ventas === 1 ? '' : 's'}
-                    </div>
-                    <div className="display tabular" style={{ fontSize: 40, fontWeight: 300, color: d.ganancia >= 0 ? 'var(--green)' : 'var(--rose)', lineHeight: 1, marginBottom: 12 }}>
-                      {fmtMoney(d.ganancia)}
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-soft)', borderTop: '1px solid var(--border)', paddingTop: 10 }}>
-                      <span>Venta <span className="tabular" style={{ color: 'var(--text)' }}>{fmtMoney(d.venta)}</span></span>
-                      <span>Costo <span className="tabular" style={{ color: 'var(--text)' }}>{fmtMoney(d.costo)}</span></span>
-                      <span>Margen <span className="tabular" style={{ color: margenTipo >= 25 ? 'var(--green)' : 'var(--amber)' }}>{margenTipo.toFixed(1)}%</span></span>
-                    </div>
+              ].map(({ label, d, color }) => (
+                <div key={label} className="card" style={{ padding: 24, borderTop: `3px solid ${color}` }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
+                    {label} · <span className="tabular">{d.ventas}</span> venta{d.ventas === 1 ? '' : 's'}
                   </div>
-                );
-              })}
+                  <div className="display tabular" style={{ fontSize: 40, fontWeight: 300, color: d.ganancia >= 0 ? 'var(--green)' : 'var(--rose)', lineHeight: 1, marginBottom: 12 }}>
+                    {fmtMoney(d.ganancia)}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-soft)', borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+                    <span>Venta <span className="tabular" style={{ color: 'var(--text)' }}>{fmtMoney(d.venta)}</span></span>
+                    <span>Costo <span className="tabular" style={{ color: 'var(--text)' }}>{fmtMoney(d.costo)}</span></span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -147,40 +142,14 @@ export default function ReportesPage() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 1, background: 'var(--border)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', marginBottom: 24 }}>
-          <div style={{ background: 'var(--surface)', padding: 28 }}>
-            <div style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>
-              Ganancia del período
-            </div>
-            <div className="display tabular" style={{ fontSize: 56, fontWeight: 300, color: ganancia >= 0 ? 'var(--green)' : 'var(--rose)', lineHeight: 1, marginBottom: 8 }}>
-              {fmtMoney(ganancia)}
-            </div>
-            <div style={{ fontSize: 13, color: 'var(--text-soft)' }}>
-              Margen: <span className="tabular" style={{ color: margen >= 30 ? 'var(--green)' : 'var(--amber)' }}>{margen.toFixed(1)}%</span>
-            </div>
-          </div>
-          <div style={{ background: 'var(--surface)', padding: 20 }}>
-            <div style={{ fontSize: 10, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>Total facturado</div>
-            <span className="display tabular" style={{ fontSize: 28, fontWeight: 300, color: 'var(--text)', lineHeight: 1 }}>{fmtMoney(totalVenta)}</span>
-          </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: 'var(--border)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', marginBottom: 32 }}>
           <div style={{ background: 'var(--surface)', padding: 20 }}>
             <div style={{ fontSize: 10, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>Cantidad</div>
             <span className="display tabular" style={{ fontSize: 36, fontWeight: 300, color: 'var(--blue)', lineHeight: 1 }}>{filtered.length}</span>
           </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, background: 'var(--border)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', marginBottom: 32 }}>
-          <div style={{ background: 'var(--surface)', padding: 20 }}>
-            <div style={{ fontSize: 10, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>Total costos</div>
-            <span className="display tabular" style={{ fontSize: 24, fontWeight: 300, color: 'var(--rose)' }}>{fmtMoney(totalCostos)}</span>
-          </div>
-          <div style={{ background: 'var(--surface)', padding: 20 }}>
-            <div style={{ fontSize: 10, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>Ticket promedio</div>
-            <span className="display tabular" style={{ fontSize: 24, fontWeight: 300, color: 'var(--text)' }}>{fmtMoney(promedio)}</span>
-          </div>
           <div style={{ background: 'var(--surface)', padding: 20 }}>
             <div style={{ fontSize: 10, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>Ganancia por orden</div>
-            <span className="display tabular" style={{ fontSize: 24, fontWeight: 300, color: 'var(--green)' }}>{fmtMoney(filtered.length > 0 ? ganancia / filtered.length : 0)}</span>
+            <span className="display tabular" style={{ fontSize: 36, fontWeight: 300, color: 'var(--green)', lineHeight: 1 }}>{fmtMoney(gananciaPorOrden)}</span>
           </div>
         </div>
 
