@@ -41,17 +41,28 @@ export default function ReportesPage() {
     load();
   }, [router]);
 
+  useEffect(() => {
+    if (!auth.getUser()) return;
+    loadGanancia();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fechaInicio, fechaFin]);
+  
   async function load() {
     setLoading(true);
     try {
-      const [data, gt] = await Promise.all([
-        api.getPedidos(),
-        api.getGananciaPorTipo().catch(() => null),
-      ]);
+      const data = await api.getPedidos();
       setPedidos(data);
-      setGananciaTipo(gt);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadGanancia() {
+    try {
+      const gt = await api.getGananciaPorTipo(fechaInicio, fechaFin);
+      setGananciaTipo(gt);
+    } catch {
+      setGananciaTipo(null);
     }
   }
 
@@ -99,7 +110,7 @@ export default function ReportesPage() {
               Ganancia real por tipo de venta
             </div>
             <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '0 0 14px' }}>
-              Solo pedidos 100% entregados (ganancia final, con todos los costos). Una venta es de pedido si todas sus prendas se compraron por encargo; si tiene alguna de stock, cuenta como stock.
+              Solo pedidos 100% entregados dentro del período elegido (por fecha de entrega). Una venta es de pedido si todas sus prendas se compraron por encargo; si tiene alguna de stock, cuenta como stock.
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
               {[
