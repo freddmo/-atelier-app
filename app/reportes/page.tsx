@@ -27,6 +27,10 @@ export default function ReportesPage() {
   const router = useRouter();
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
+  const [gananciaTipo, setGananciaTipo] = useState<{
+    stock: { piezas: number; venta: number; costo: number; ganancia: number };
+    pedido: { piezas: number; venta: number; costo: number; ganancia: number };
+  } | null>(null);
   const today = new Date();
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   const [fechaInicio, setFechaInicio] = useState(firstOfMonth.toISOString().split('T')[0]);
@@ -43,8 +47,12 @@ export default function ReportesPage() {
   async function load() {
     setLoading(true);
     try {
-      const data = await api.getPedidos();
+      const [data, gt] = await Promise.all([
+        api.getPedidos(),
+        api.getGananciaPorTipo().catch(() => null),
+      ]);
       setPedidos(data);
+      setGananciaTipo(gt);
     } finally {
       setLoading(false);
     }
@@ -113,6 +121,41 @@ export default function ReportesPage() {
           </h1>
           <p style={{ color: 'var(--text-soft)', fontSize: 14, margin: '12px 0 0' }}>Ganancia y desempeño por período</p>
         </div>
+
+        {/* ===== GANANCIA REAL POR ORIGEN (por pieza, todo el histórico) ===== */}
+        {gananciaTipo && (
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
+              Ganancia real por origen
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '0 0 14px' }}>
+              Calculado pieza por pieza sobre todo el histórico. Cada prenda cuenta según de dónde salió (stock o pedido).
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
+              {[
+                { label: 'Ganancia · Pedidos', d: gananciaTipo.pedido, color: 'var(--blue)' },
+                { label: 'Ganancia · Stock', d: gananciaTipo.stock, color: 'var(--amber)' },
+              ].map(({ label, d, color }) => {
+                const margenTipo = d.venta > 0 ? (d.ganancia / d.venta * 100) : 0;
+                return (
+                  <div key={label} className="card" style={{ padding: 24, borderTop: `3px solid ${color}` }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
+                      {label} · <span className="tabular">{d.piezas}</span> pza
+                    </div>
+                    <div className="display tabular" style={{ fontSize: 40, fontWeight: 300, color: d.ganancia >= 0 ? 'var(--green)' : 'var(--rose)', lineHeight: 1, marginBottom: 12 }}>
+                      {fmtMoney(d.ganancia)}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-soft)', borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+                      <span>Venta <span className="tabular" style={{ color: 'var(--text)' }}>{fmtMoney(d.venta)}</span></span>
+                      <span>Costo <span className="tabular" style={{ color: 'var(--text)' }}>{fmtMoney(d.costo)}</span></span>
+                      <span>Margen <span className="tabular" style={{ color: margenTipo >= 25 ? 'var(--green)' : 'var(--amber)' }}>{margenTipo.toFixed(1)}%</span></span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="card" style={{ padding: 0, marginBottom: 16, overflow: 'hidden' }}>
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
