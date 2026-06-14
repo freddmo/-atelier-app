@@ -511,5 +511,5 @@ export const api = {
       stock: { ventas: number; venta: number; costo: number; ganancia: number };
       pedido: { ventas: number; venta: number; costo: number; ganancia: number };
     }>({ action: 'getGananciaPorTipo' });
-  },
+  }, 
 };
