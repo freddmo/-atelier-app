@@ -515,4 +515,14 @@ export const api = {
       pedido: { ventas: number; venta: number; costo: number; ganancia: number };
     }>(params);
   }, 
+  async getReporteGanancia(fechaInicio?: string, fechaFin?: string) {
+    const params: Record<string, string> = { action: 'getReporteGanancia' };
+    if (fechaInicio) params.fechaInicio = fechaInicio;
+    if (fechaFin) params.fechaFin = fechaFin;
+    return apiCall<{
+      stock: { ventas: number; venta: number; costo: number; ganancia: number };
+      pedido: { ventas: number; venta: number; costo: number; ganancia: number };
+      detalle: { ORDEN_ID: string; NOMBRE: string; F_ORDEN: string; TIPO: string; venta: number; costo: number; ganancia: number }[];
+    }>(params);
+  },
 };
