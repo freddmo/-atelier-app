@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { auth } from '@/lib/auth';
-import { Pedido } from '@/lib/types';
 import Navbar from '@/components/Navbar';
 
 function fmtMoney(n: number) {
@@ -21,14 +20,16 @@ function fmtDateShort(d: string) {
   return new Date(d + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 }
 
+type ReporteData = {
+  stock: { ventas: number; venta: number; costo: number; ganancia: number };
+  pedido: { ventas: number; venta: number; costo: number; ganancia: number };
+  detalle: { ORDEN_ID: string; NOMBRE: string; F_ORDEN: string; TIPO: string; venta: number; costo: number; ganancia: number }[];
+};
+
 export default function ReportesPage() {
   const router = useRouter();
-  const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [reporte, setReporte] = useState<ReporteData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [gananciaTipo, setGananciaTipo] = useState<{
-    stock: { ventas: number; venta: number; costo: number; ganancia: number };
-    pedido: { ventas: number; venta: number; costo: number; ganancia: number };
-  } | null>(null);
   const today = new Date();
   const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
   const [fechaInicio, setFechaInicio] = useState(firstOfMonth.toISOString().split('T')[0]);
@@ -38,46 +39,26 @@ export default function ReportesPage() {
     const user = auth.getUser();
     if (!user) { router.replace('/login'); return; }
     if (user.rol !== 'admin') { router.replace('/pedidos'); return; }
-    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
   useEffect(() => {
     if (!auth.getUser()) return;
-    loadGanancia();
+    load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fechaInicio, fechaFin]);
-  
+
   async function load() {
     setLoading(true);
     try {
-      const data = await api.getPedidos();
-      setPedidos(data);
+      const data = await api.getReporteGanancia(fechaInicio, fechaFin);
+      setReporte(data);
+    } catch {
+      setReporte(null);
     } finally {
       setLoading(false);
     }
   }
-
-  async function loadGanancia() {
-    try {
-      const gt = await api.getGananciaPorTipo(fechaInicio, fechaFin);
-      setGananciaTipo(gt);
-    } catch {
-      setGananciaTipo(null);
-    }
-  }
-
-  const filtered = pedidos.filter(p => {
-    const estado = String(p.ESTATUS_ENVIO || '').toUpperCase().trim();
-    if (estado !== 'ENTREGADO') return false;
-    const fEntrega = String((p as { F_ENTREGA_REAL?: string }).F_ENTREGA_REAL || '').slice(0, 10);
-    if (!fEntrega) return false;
-    return fEntrega >= fechaInicio && fEntrega <= fechaFin;
-  });
-
-  const totalVenta = filtered.reduce((a, p) => a + p.totales.venta, 0);
-  const totalCostos = filtered.reduce((a, p) => a + p.totales.costos, 0);
-  const ganancia = totalVenta - totalCostos;
-  const gananciaPorOrden = filtered.length > 0 ? ganancia / filtered.length : 0;
 
   function setQuickRange(range: 'hoy' | 'semana' | 'mes') {
     const t = new Date();
@@ -94,6 +75,10 @@ export default function ReportesPage() {
     setFechaInicio(inicio); setFechaFin(fin);
   }
 
+  const detalle = reporte?.detalle || [];
+  const totalGanancia = (reporte ? reporte.pedido.ganancia + reporte.stock.ganancia : 0);
+  const gananciaPorOrden = detalle.length > 0 ? totalGanancia / detalle.length : 0;
+
   return (
     <>
       <Navbar />
@@ -103,22 +88,22 @@ export default function ReportesPage() {
           <h1 className="display" style={{ fontSize: 48, fontWeight: 300, margin: '6px 0 0', lineHeight: 1 }}>
             Reportes<em style={{ color: 'var(--gold)' }}>.</em>
           </h1>
-          <p style={{ color: 'var(--text-soft)', fontSize: 14, margin: '12px 0 0' }}>Ganancia y desempeño por período</p>
+          <p style={{ color: 'var(--text-soft)', fontSize: 14, margin: '12px 0 0' }}>Ganancia estimada por período (pedidos hechos)</p>
         </div>
 
-        {/* ===== GANANCIA POR TIPO DE VENTA (pedido completo, solo entregados) ===== */}
-        {gananciaTipo && (
+        {/* ===== GANANCIA POR TIPO DE VENTA ===== */}
+        {reporte && (
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
-              Ganancia real por tipo de venta
+              Ganancia estimada por tipo de venta
             </div>
             <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '0 0 14px' }}>
-              Solo pedidos 100% entregados dentro del período elegido (por fecha de entrega). Una venta es de pedido si todas sus prendas se compraron por encargo; si tiene alguna de stock, cuenta como stock.
+              Todos los pedidos con factura cargada (entregados o no), por fecha de pedido. Los costos que aún faltan se asumen altos (courier $8.50/pieza, empaque $3.04, pin $1.10, delivery $6.10), así la ganancia real tiende a ser igual o mejor. Una venta es de pedido si todas sus prendas se compraron por encargo; si tiene alguna de stock, cuenta como stock.
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 12 }}>
               {[
-                { label: 'Ganancia · Pedidos', d: gananciaTipo.pedido, color: 'var(--blue)' },
-                { label: 'Ganancia · Stock', d: gananciaTipo.stock, color: 'var(--amber)' },
+                { label: 'Ganancia · Pedidos', d: reporte.pedido, color: 'var(--blue)' },
+                { label: 'Ganancia · Stock', d: reporte.stock, color: 'var(--amber)' },
               ].map(({ label, d, color }) => (
                 <div key={label} className="card" style={{ padding: 24, borderTop: `3px solid ${color}` }}>
                   <div style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
@@ -159,7 +144,7 @@ export default function ReportesPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, background: 'var(--border)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', marginBottom: 32 }}>
           <div style={{ background: 'var(--surface)', padding: 20 }}>
             <div style={{ fontSize: 10, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>Cantidad</div>
-            <span className="display tabular" style={{ fontSize: 36, fontWeight: 300, color: 'var(--blue)', lineHeight: 1 }}>{filtered.length}</span>
+            <span className="display tabular" style={{ fontSize: 36, fontWeight: 300, color: 'var(--blue)', lineHeight: 1 }}>{detalle.length}</span>
           </div>
           <div style={{ background: 'var(--surface)', padding: 20 }}>
             <div style={{ fontSize: 10, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 10 }}>Ganancia por orden</div>
@@ -172,15 +157,15 @@ export default function ReportesPage() {
             Detalle de órdenes
           </h2>
           <p style={{ color: 'var(--text-soft)', fontSize: 13, margin: 0 }}>
-            {filtered.length} órden{filtered.length === 1 ? '' : 'es'} entre {fmtDate(fechaInicio)} y {fmtDate(fechaFin)}
+            {detalle.length} órden{detalle.length === 1 ? '' : 'es'} entre {fmtDate(fechaInicio)} y {fmtDate(fechaFin)} · costos estimados donde faltan
           </p>
         </div>
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: 48, color: 'var(--text-faint)' }}>Cargando…</div>
-        ) : filtered.length === 0 ? (
+        ) : detalle.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 64, color: 'var(--text-faint)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6 }}>
-            No hay órdenes en este período
+            No hay órdenes con factura en este período
           </div>
         ) : (
           <div className="card" style={{ overflow: 'hidden' }}>
@@ -188,25 +173,31 @@ export default function ReportesPage() {
               <thead>
                 <tr style={{ background: 'var(--bg)' }}>
                   <th style={{ textAlign: 'left', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>ID</th>
-                  <th style={{ textAlign: 'left', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Cliente / Concepto</th>
-                  <th style={{ textAlign: 'left', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Entrega</th>
+                  <th style={{ textAlign: 'left', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Cliente</th>
+                  <th style={{ textAlign: 'left', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Tipo</th>
+                  <th style={{ textAlign: 'left', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Pedido</th>
                   <th style={{ textAlign: 'right', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Venta</th>
-                  <th style={{ textAlign: 'right', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Costos</th>
+                  <th style={{ textAlign: 'right', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Costo est.</th>
                   <th style={{ textAlign: 'right', padding: '14px 20px', fontWeight: 500, fontSize: 11, letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Ganancia</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(p => {
-                  const g = p.totales.ganancia;
+                {detalle.map(p => {
+                  const isStock = p.TIPO === 'STOCK';
                   return (
                     <tr key={p.ORDEN_ID} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }} onClick={() => router.push(`/pedido/${encodeURIComponent(p.ORDEN_ID)}`)}>
                       <td style={{ padding: '14px 20px' }} className="mono">{p.ORDEN_ID}</td>
                       <td style={{ padding: '14px 20px' }} className="display">{p.NOMBRE}</td>
-                      <td style={{ padding: '14px 20px', color: 'var(--text-soft)' }}>{fmtDateShort(String((p as { F_ENTREGA_REAL?: string }).F_ENTREGA_REAL || '').slice(0, 10))}</td>
-                      <td style={{ padding: '14px 20px', textAlign: 'right' }} className="tabular">{fmtMoney(p.totales.venta)}</td>
-                      <td style={{ padding: '14px 20px', textAlign: 'right', color: 'var(--text-soft)' }} className="tabular">{fmtMoney(p.totales.costos)}</td>
+                      <td style={{ padding: '14px 20px' }}>
+                        <span className="pill" style={{ background: isStock ? 'var(--amber-bg)' : 'var(--blue-bg)', color: isStock ? 'var(--amber)' : 'var(--blue)' }}>
+                          {p.TIPO}
+                        </span>
+                      </td>
+                      <td style={{ padding: '14px 20px', color: 'var(--text-soft)' }}>{fmtDateShort(p.F_ORDEN)}</td>
+                      <td style={{ padding: '14px 20px', textAlign: 'right' }} className="tabular">{fmtMoney(p.venta)}</td>
+                      <td style={{ padding: '14px 20px', textAlign: 'right', color: 'var(--text-soft)' }} className="tabular">{fmtMoney(p.costo)}</td>
                       <td style={{ padding: '14px 20px', textAlign: 'right', fontWeight: 500 }} className="tabular">
-                        <span style={{ color: g >= 0 ? 'var(--green)' : 'var(--rose)' }}>{fmtMoney(g)}</span>
+                        <span style={{ color: p.ganancia >= 0 ? 'var(--green)' : 'var(--rose)' }}>{fmtMoney(p.ganancia)}</span>
                       </td>
                     </tr>
                   );
