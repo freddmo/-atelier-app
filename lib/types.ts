@@ -114,6 +114,7 @@ export type Pedido = {
   REGALO_ENVIADO: string;
   CAJA_EXTRAS: number | string;
   NOTAS: string;
+  PRIORIDAD?: number | string;
   cliente: Cliente | null;
   items: Item[];
   costos: Costo[];
