@@ -525,4 +525,12 @@ export const api = {
       detalle: { ORDEN_ID: string; NOMBRE: string; F_ORDEN: string; TIPO: string; venta: number; costo: number; ganancia: number }[];
     }>(params);
   },
+  async setPrioridad(ordenId: string, valor: number | '', usuario: string) {
+    return apiCall<{ ordenId: string; prioridad: number | '' }>({
+      action: 'setPrioridad',
+      ordenId,
+      valor: String(valor),
+      usuario,
+    });
+  },
 };
