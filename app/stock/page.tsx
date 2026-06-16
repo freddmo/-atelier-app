@@ -33,6 +33,189 @@ function estadoColor(e: string) {
   return 'var(--text-soft)';
 }
 
+// ===== CHECKLIST DE AUDITORÍA =====
+function ChecklistAuditoria({ lotes }: { lotes: LoteStock[] }) {
+  const [checks, setChecks] = useState<Record<string, boolean>>({});
+  const [iniciado, setIniciado] = useState(false);
+
+  function iniciar() {
+    const init: Record<string, boolean> = {};
+    lotes.forEach(l => { init[l.LOTE_ID] = true; });
+    setChecks(init);
+    setIniciado(true);
+  }
+
+  function reset() {
+    setChecks({});
+    setIniciado(false);
+  }
+
+  function toggle(loteId: string) {
+    setChecks(prev => ({ ...prev, [loteId]: !prev[loteId] }));
+  }
+
+  const encontrados = Object.values(checks).filter(Boolean).length;
+  const total = lotes.length;
+  const faltantes = lotes.filter(l => checks[l.LOTE_ID] === false);
+
+  function copiarReporte() {
+    const hoy = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+    let txt = `📦 CHEQUEO DE BODEGA · ${hoy}\n`;
+    txt += `✅ Encontrados: ${encontrados}/${total}\n`;
+    if (faltantes.length > 0) {
+      txt += `\n❌ NO encontrados (${faltantes.length}):\n`;
+      faltantes.forEach(l => {
+        txt += `· ${l.NOMBRE_PRODUCTO} · ${l.TALLA} · ${l.LONGITUD} · ${l.COLOR} · ${l.LOTE_ID}\n`;
+      });
+    } else {
+      txt += `\n✅ Todo encontrado. Inventario completo.`;
+    }
+    navigator.clipboard.writeText(txt).then(() => alert('Reporte copiado al portapapeles ✓'));
+  }
+
+  if (!iniciado) {
+    return (
+      <div style={{ textAlign: 'center', padding: '48px 24px' }}>
+        <div style={{ fontSize: 40, marginBottom: 16 }}>📦</div>
+        <div className="display" style={{ fontSize: 22, fontWeight: 300, marginBottom: 8 }}>
+          Chequeo de bodega
+        </div>
+        <p style={{ color: 'var(--text-soft)', fontSize: 13, maxWidth: 360, margin: '0 auto 24px' }}>
+          Se cargarán los {total} lote{total !== 1 ? 's' : ''} que el sistema marca como disponibles en bodega.
+          Revisa físicamente cada uno y desmarca los que no encuentres.
+        </p>
+        <button className="btn btn-primary" onClick={iniciar} disabled={total === 0}>
+          Iniciar chequeo
+        </button>
+        {total === 0 && (
+          <p style={{ color: 'var(--text-faint)', fontSize: 12, marginTop: 12 }}>No hay lotes disponibles en bodega.</p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Barra de progreso */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <span style={{ fontSize: 13, color: 'var(--text-soft)' }}>
+            <span style={{ color: 'var(--green)', fontWeight: 500 }}>{encontrados}</span> / {total} encontrados
+          </span>
+          {faltantes.length > 0 && (
+            <span style={{ fontSize: 13, color: 'var(--rose)', fontWeight: 500 }}>
+              {faltantes.length} faltante{faltantes.length !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+        <div style={{ height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
+          <div style={{
+            height: '100%',
+            width: `${(encontrados / total) * 100}%`,
+            background: faltantes.length > 0 ? 'var(--amber)' : 'var(--green)',
+            borderRadius: 3,
+            transition: 'width 0.3s ease'
+          }} />
+        </div>
+      </div>
+
+      {/* Lista de lotes */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 24 }}>
+        {lotes.map(l => {
+          const ok = checks[l.LOTE_ID] !== false;
+          return (
+            <div
+              key={l.LOTE_ID}
+              onClick={() => toggle(l.LOTE_ID)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 14,
+                padding: '14px 16px',
+                background: ok ? 'var(--surface)' : 'var(--rose-bg)',
+                border: `1px solid ${ok ? 'var(--border)' : 'var(--rose)'}`,
+                borderRadius: 6,
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                opacity: ok ? 1 : 0.75,
+              }}
+            >
+              {/* Checkbox visual */}
+              <div style={{
+                width: 22,
+                height: 22,
+                borderRadius: 4,
+                border: `2px solid ${ok ? 'var(--green)' : 'var(--rose)'}`,
+                background: ok ? 'var(--green)' : 'transparent',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                fontSize: 13,
+                color: 'white',
+                transition: 'all 0.15s ease',
+              }}>
+                {ok ? '✓' : ''}
+              </div>
+
+              {/* Info del lote */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="display" style={{ fontSize: 14, marginBottom: 2, textDecoration: ok ? 'none' : 'line-through', color: ok ? 'var(--text)' : 'var(--text-soft)' }}>
+                  {l.NOMBRE_PRODUCTO}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>
+                  {l.TALLA} · {l.LONGITUD} · {l.COLOR}
+                  {l.CANT_DISPONIBLE > 1 && <span style={{ color: 'var(--gold)', fontWeight: 500 }}> · ×{l.CANT_DISPONIBLE}</span>}
+                </div>
+              </div>
+
+              {/* Tipo y estado */}
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  {l.TIPO_PRENDA || 'Pieza'}
+                </div>
+                <div style={{ fontSize: 11, marginTop: 2, color: ok ? 'var(--green)' : 'var(--rose)', fontWeight: 500 }}>
+                  {ok ? '✓ OK' : '✗ No encontrado'}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Resumen de faltantes */}
+      {faltantes.length > 0 && (
+        <div style={{ padding: 16, background: 'var(--rose-bg)', border: '1px solid var(--rose)', borderRadius: 6, marginBottom: 16 }}>
+          <div style={{ fontSize: 12, color: 'var(--rose)', fontWeight: 600, marginBottom: 8 }}>
+            ❌ No encontrados ({faltantes.length})
+          </div>
+          {faltantes.map(l => (
+            <div key={l.LOTE_ID} style={{ fontSize: 12, color: 'var(--text-soft)', marginBottom: 4 }}>
+              · {l.NOMBRE_PRODUCTO} · {l.TALLA} · {l.COLOR} · <span className="mono" style={{ fontSize: 11 }}>{l.LOTE_ID}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {encontrados === total && (
+        <div style={{ padding: 16, background: 'rgba(74,163,110,0.08)', border: '1px solid var(--green)', borderRadius: 6, marginBottom: 16, fontSize: 13, color: 'var(--green)', textAlign: 'center' }}>
+          ✅ Todo encontrado — inventario completo
+        </div>
+      )}
+
+      {/* Botones */}
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button className="btn" onClick={reset} style={{ flex: 1, justifyContent: 'center' }}>
+          Reiniciar chequeo
+        </button>
+        <button className="btn btn-primary" onClick={copiarReporte} style={{ flex: 1, justifyContent: 'center' }}>
+          📋 Copiar reporte para Freddy
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function StockPage() {
   const router = useRouter();
   const [lotes, setLotes] = useState<LoteStock[]>([]);
@@ -42,6 +225,7 @@ export default function StockPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [tab, setTab] = useState<'inventario' | 'chequeo'>('inventario');
 
   // Armador de sets
   const [selSuperior, setSelSuperior] = useState('');
@@ -90,7 +274,6 @@ export default function StockPage() {
     return a !== 'FALSE' && a !== 'NO' && a !== '0';
   });
 
-  // ===== Lotes usados en combos (se filtran de las listas sueltas) =====
   const lotesEnCombos = new Set<string>();
   combos.forEach(c => {
     lotesEnCombos.add(c.superior.LOTE_ID);
@@ -100,7 +283,6 @@ export default function StockPage() {
   const lotesLibres = lotes.filter(l => !lotesEnCombos.has(l.LOTE_ID));
   const caminoLibres = enCamino.filter(l => !lotesEnCombos.has(l.LOTE_ID));
 
-  // ===== Armador: ofrece piezas disponibles + en camino, sin las ya usadas =====
   type OpcionPieza = { LOTE_ID: string; NOMBRE_PRODUCTO: string; TIPO_PRENDA: string; TALLA: string; LONGITUD: string; COLOR: string; enCamino: boolean };
   const piezasParaArmar: OpcionPieza[] = [
     ...lotes.map(l => ({ LOTE_ID: l.LOTE_ID, NOMBRE_PRODUCTO: l.NOMBRE_PRODUCTO, TIPO_PRENDA: l.TIPO_PRENDA, TALLA: l.TALLA, LONGITUD: l.LONGITUD, COLOR: l.COLOR, enCamino: false })),
@@ -183,6 +365,8 @@ export default function StockPage() {
     <>
       <Navbar />
       <div className="fade-in stock-container" style={{ maxWidth: 1000, margin: '0 auto', padding: '32px 24px' }}>
+        
+        {/* HEADER */}
         <div className="stock-header" style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 28, gap: 16, flexWrap: 'wrap' }}>
           <div>
             <span className="number-tag">INVENTARIO</span>
@@ -197,9 +381,11 @@ export default function StockPage() {
             <button className="btn" onClick={load} disabled={loading}>
               {loading ? 'Cargando…' : '↻ Actualizar'}
             </button>
-            <button className="btn btn-primary" onClick={() => window.print()}>
-              🖨️ Imprimir
-            </button>
+            {tab === 'inventario' && (
+              <button className="btn btn-primary" onClick={() => window.print()}>
+                🖨️ Imprimir
+              </button>
+            )}
           </div>
         </div>
 
@@ -209,307 +395,336 @@ export default function StockPage() {
           </div>
         )}
 
+        {/* TABS */}
+        <div className="print-hide" style={{ display: 'flex', gap: 2, marginBottom: 28, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
+          {([
+            { key: 'inventario', label: '📦 Inventario' },
+            { key: 'chequeo',    label: '✅ Chequeo de bodega' },
+          ] as { key: 'inventario' | 'chequeo'; label: string }[]).map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              style={{
+                padding: '10px 18px',
+                fontSize: 13,
+                border: 'none',
+                borderBottom: tab === t.key ? '2px solid var(--gold)' : '2px solid transparent',
+                background: 'transparent',
+                color: tab === t.key ? 'var(--text)' : 'var(--text-soft)',
+                cursor: 'pointer',
+                fontWeight: tab === t.key ? 500 : 400,
+                transition: 'all 0.15s',
+                marginBottom: -1,
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
         {loading ? (
           <div style={{ textAlign: 'center', padding: 64, color: 'var(--text-faint)' }}>Cargando inventario…</div>
         ) : (
           <>
-            {/* ===== ARMADOR DE SETS ===== */}
-            {piezasParaArmar.length > 0 && (
-              <div className="card print-hide" style={{ padding: 24, marginBottom: 20 }}>
-                <h3 style={{ margin: '0 0 4px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-                  🧩 Armar un set
-                </h3>
-                <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '0 0 16px' }}>
-                  Combina una pieza superior con una inferior y guárdalo. Puedes usar piezas disponibles o en camino.
-                </p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                  <div>
-                    <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Pieza superior (top / camisa)</label>
-                    <select className="input" value={selSuperior} onChange={(e) => setSelSuperior(e.target.value)} style={{ marginTop: 4 }}>
-                      <option value="">— Elegir —</option>
-                      {superiores.map(p => (
-                        <option key={p.LOTE_ID} value={p.LOTE_ID}>{etiquetaOpcion(p)}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Pieza inferior (pantalón)</label>
-                    <select className="input" value={selInferior} onChange={(e) => setSelInferior(e.target.value)} style={{ marginTop: 4 }}>
-                      <option value="">— Elegir —</option>
-                      {inferiores.map(p => (
-                        <option key={p.LOTE_ID} value={p.LOTE_ID}>{etiquetaOpcion(p)}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {(piezaSup || piezaInf) && (
-                  <div style={{ marginTop: 16, padding: 16, background: 'linear-gradient(to right, rgba(184,149,78,0.06), transparent)', border: '1px solid var(--gold)', borderRadius: 6 }}>
-                    <div style={{ fontSize: 11, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Conjunto a guardar</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                      <div style={{ flex: 1, minWidth: 200 }}>
-                        {piezaSup ? (
-                          <>
-                            <div className="display" style={{ fontSize: 15 }}>{piezaSup.NOMBRE_PRODUCTO} {piezaSup.enCamino ? '🚚' : ''}</div>
-                            <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>{piezaSup.TALLA} · {piezaSup.LONGITUD} · {piezaSup.COLOR}</div>
-                          </>
-                        ) : <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>(sin pieza superior)</span>}
-                      </div>
-                      <div style={{ fontSize: 20, color: 'var(--gold)' }}>+</div>
-                      <div style={{ flex: 1, minWidth: 200 }}>
-                        {piezaInf ? (
-                          <>
-                            <div className="display" style={{ fontSize: 15 }}>{piezaInf.NOMBRE_PRODUCTO} {piezaInf.enCamino ? '🚚' : ''}</div>
-                            <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>{piezaInf.TALLA} · {piezaInf.LONGITUD} · {piezaInf.COLOR}</div>
-                          </>
-                        ) : <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>(sin pieza inferior)</span>}
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 14, justifyContent: 'flex-end' }}>
-                      <button className="btn" onClick={() => { setSelSuperior(''); setSelInferior(''); }} disabled={savingCombo} style={{ padding: '6px 12px', fontSize: 12 }}>
-                        Limpiar
-                      </button>
-                      <button className="btn btn-primary" onClick={guardarCombo} disabled={savingCombo || !selSuperior || !selInferior} style={{ padding: '6px 14px', fontSize: 12 }}>
-                        {savingCombo ? 'Guardando…' : 'Guardar conjunto'}
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
+            {/* ===== TAB: CHEQUEO ===== */}
+            {tab === 'chequeo' && (
+              <ChecklistAuditoria lotes={lotes} />
             )}
 
-            {/* ===== CONJUNTOS ===== */}
-            {combos.length > 0 && (
+            {/* ===== TAB: INVENTARIO ===== */}
+            {tab === 'inventario' && (
               <>
-                <h3 style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-                  Conjuntos · <span className="tabular">{combos.length}</span>
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12, marginBottom: 28 }}>
-                  {combos.map(c => {
-                    const eta = fmtEta(c.eta);
-                    return (
-                      <div key={c.COMBO_ID} className="card" style={{ padding: 16, position: 'relative', borderColor: c.enCamino ? 'var(--amber)' : undefined }}>
-                        <button
-                          className="btn print-hide"
-                          onClick={() => borrarComboFn(c.COMBO_ID)}
-                          disabled={deletingCombo === c.COMBO_ID}
-                          title="Borrar conjunto"
-                          style={{ position: 'absolute', top: 10, right: 10, padding: '3px 8px', fontSize: 11, color: 'var(--rose)' }}
-                        >
-                          {deletingCombo === c.COMBO_ID ? '…' : '✕'}
-                        </button>
-
-                        {c.enCamino ? (
-                          <div style={{ fontSize: 10, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
-                            🚚 En camino{eta ? ` · llega ${eta}` : ''}
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: 10, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
-                            Conjunto · listo
-                          </div>
-                        )}
-
-                        {[c.superior, c.inferior].map((p, i) => {
-                          const estado = (p.ESTADO_VIAJE || '').toUpperCase();
-                          const enDespacho = despacharId === p.LOTE_ID;
-                          return (
-                            <div key={p.LOTE_ID} style={{ marginBottom: i === 0 ? 8 : 0 }}>
-                              {i === 1 && <div style={{ fontSize: 13, color: c.enCamino ? 'var(--amber)' : 'var(--gold)', margin: '2px 0' }}>+</div>}
-                              <div className="display" style={{ fontSize: 14 }}>{p.NOMBRE_PRODUCTO} {p.enCamino ? '🚚' : ''}</div>
-                              <div style={{ fontSize: 11, color: 'var(--text-soft)' }}>{p.TALLA} · {p.LONGITUD} · {p.COLOR}</div>
-
-                              {/* Estado + botón de avance (solo si la pieza va en camino y eres admin) */}
-                              {p.enCamino && (
-                                <div style={{ marginTop: 6 }}>
-                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: estadoColor(estado), marginBottom: isAdmin ? 6 : 0 }}>
-                                    <span style={{ width: 7, height: 7, borderRadius: '50%', background: estadoColor(estado) }} />
-                                    {p.ESTADO_VIAJE}
-                                  </span>
-
-                                  {isAdmin && !enDespacho && (
-                                    <div className="print-hide">
-                                      {estado === 'EN TRANSITO A FL' && (
-                                        <button className="btn" onClick={() => doAccion(p.LOTE_ID, 'LLEGO_FL')} disabled={working === p.LOTE_ID} style={{ padding: '4px 10px', fontSize: 11 }}>
-                                          {working === p.LOTE_ID ? '…' : 'Llegó a FL'}
-                                        </button>
-                                      )}
-                                      {estado === 'EN BODEGA FL' && (
-                                        <button className="btn btn-primary" onClick={() => openDespachar(p.LOTE_ID)} disabled={working === p.LOTE_ID} style={{ padding: '4px 10px', fontSize: 11 }}>
-                                          Despachar a EC
-                                        </button>
-                                      )}
-                                      {estado === 'EN CAMINO A EC' && (
-                                        <button className="btn" onClick={() => doAccion(p.LOTE_ID, 'LLEGO_EC')} disabled={working === p.LOTE_ID} style={{ padding: '4px 10px', fontSize: 11 }}>
-                                          {working === p.LOTE_ID ? '…' : 'Llegó a EC'}
-                                        </button>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  {isAdmin && enDespacho && (
-                                    <div className="print-hide" style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4, padding: 10, background: 'var(--bg)', borderRadius: 4 }}>
-                                      <div>
-                                        <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Courier</label>
-                                        <select className="input" value={despCourier} onChange={(e) => setDespCourier(e.target.value)} style={{ marginTop: 2, padding: '5px 8px', fontSize: 12 }}>
-                                          {couriersActivos.length === 0 && <option value="">(sin couriers)</option>}
-                                          {couriersActivos.map(co => <option key={co.COURIER} value={co.COURIER}>{co.COURIER}</option>)}
-                                        </select>
-                                      </div>
-                                      <div>
-                                        <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Fecha de salida</label>
-                                        <input type="date" className="input" value={despFecha} onChange={(e) => setDespFecha(e.target.value)} style={{ marginTop: 2, padding: '5px 8px', fontSize: 12 }} />
-                                      </div>
-                                      <div style={{ display: 'flex', gap: 6 }}>
-                                        <button className="btn" onClick={() => setDespacharId('')} disabled={working === p.LOTE_ID} style={{ flex: 1, justifyContent: 'center', padding: '5px 8px', fontSize: 11 }}>
-                                          Cancelar
-                                        </button>
-                                        <button className="btn btn-primary" onClick={() => confirmDespachar(p.LOTE_ID)} disabled={working === p.LOTE_ID} style={{ flex: 1, justifyContent: 'center', padding: '5px 8px', fontSize: 11 }}>
-                                          {working === p.LOTE_ID ? '…' : 'Confirmar'}
-                                        </button>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                {/* ARMADOR DE SETS */}
+                {piezasParaArmar.length > 0 && (
+                  <div className="card print-hide" style={{ padding: 24, marginBottom: 20 }}>
+                    <h3 style={{ margin: '0 0 4px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
+                      🧩 Armar un set
+                    </h3>
+                    <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '0 0 16px' }}>
+                      Combina una pieza superior con una inferior y guárdalo. Puedes usar piezas disponibles o en camino.
+                    </p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                      <div>
+                        <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Pieza superior (top / camisa)</label>
+                        <select className="input" value={selSuperior} onChange={(e) => setSelSuperior(e.target.value)} style={{ marginTop: 4 }}>
+                          <option value="">— Elegir —</option>
+                          {superiores.map(p => (
+                            <option key={p.LOTE_ID} value={p.LOTE_ID}>{etiquetaOpcion(p)}</option>
+                          ))}
+                        </select>
                       </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-            
-            {/* ===== DISPONIBLE SUELTO (tarjetas) ===== */}
-            <h3 style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-              Disponible suelto · <span className="tabular">{totalPiezas}</span>
-            </h3>
-            {lotesLibres.length === 0 ? (
-              <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text-faint)', marginBottom: 28 }}>
-                No hay piezas sueltas disponibles.
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12, marginBottom: 28 }}>
-                {lotesLibres.map(l => (
-                  <div key={l.LOTE_ID} className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', borderColor: !l.tieneCourier ? 'var(--amber)' : undefined }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                      <span style={{ fontSize: 10, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{l.TIPO_PRENDA || 'Pieza'}</span>
-                      <span className="tabular" style={{ fontSize: 13, fontWeight: 500 }}>
-                        {l.CANT_DISPONIBLE > 1 ? `×${l.CANT_DISPONIBLE}` : ''}
-                        {!l.tieneCourier && <span title="Sin courier cargado todavía" style={{ marginLeft: 6, color: 'var(--amber)' }}>⚠</span>}
-                      </span>
+                      <div>
+                        <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Pieza inferior (pantalón)</label>
+                        <select className="input" value={selInferior} onChange={(e) => setSelInferior(e.target.value)} style={{ marginTop: 4 }}>
+                          <option value="">— Elegir —</option>
+                          {inferiores.map(p => (
+                            <option key={p.LOTE_ID} value={p.LOTE_ID}>{etiquetaOpcion(p)}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
 
-                    <div className="display" style={{ fontSize: 15, marginBottom: 3 }}>{l.NOMBRE_PRODUCTO}</div>
-                    <div style={{ fontSize: 12, color: 'var(--text-soft)', marginBottom: 12 }}>
-                      <span className="mono">{l.TALLA}</span> · {l.LONGITUD} · {l.COLOR}
-                    </div>
-
-                    <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--text-faint)' }}>
-                      <span>{fmtDate(l.FECHA_ENTRADA)}</span>
-                      {isAdmin && <span className="mono print-hide">{l.LOTE_ID}</span>}
-                    </div>
-                    {isAdmin && (
-                      <div className="tabular print-hide" style={{ fontSize: 12, color: 'var(--text-soft)', marginTop: 4, textAlign: 'right' }}>
-                        {fmtMoney(l.COSTO_UNITARIO)}
+                    {(piezaSup || piezaInf) && (
+                      <div style={{ marginTop: 16, padding: 16, background: 'linear-gradient(to right, rgba(184,149,78,0.06), transparent)', border: '1px solid var(--gold)', borderRadius: 6 }}>
+                        <div style={{ fontSize: 11, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Conjunto a guardar</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                          <div style={{ flex: 1, minWidth: 200 }}>
+                            {piezaSup ? (
+                              <>
+                                <div className="display" style={{ fontSize: 15 }}>{piezaSup.NOMBRE_PRODUCTO} {piezaSup.enCamino ? '🚚' : ''}</div>
+                                <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>{piezaSup.TALLA} · {piezaSup.LONGITUD} · {piezaSup.COLOR}</div>
+                              </>
+                            ) : <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>(sin pieza superior)</span>}
+                          </div>
+                          <div style={{ fontSize: 20, color: 'var(--gold)' }}>+</div>
+                          <div style={{ flex: 1, minWidth: 200 }}>
+                            {piezaInf ? (
+                              <>
+                                <div className="display" style={{ fontSize: 15 }}>{piezaInf.NOMBRE_PRODUCTO} {piezaInf.enCamino ? '🚚' : ''}</div>
+                                <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>{piezaInf.TALLA} · {piezaInf.LONGITUD} · {piezaInf.COLOR}</div>
+                              </>
+                            ) : <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>(sin pieza inferior)</span>}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 14, justifyContent: 'flex-end' }}>
+                          <button className="btn" onClick={() => { setSelSuperior(''); setSelInferior(''); }} disabled={savingCombo} style={{ padding: '6px 12px', fontSize: 12 }}>
+                            Limpiar
+                          </button>
+                          <button className="btn btn-primary" onClick={guardarCombo} disabled={savingCombo || !selSuperior || !selInferior} style={{ padding: '6px 14px', fontSize: 12 }}>
+                            {savingCombo ? 'Guardando…' : 'Guardar conjunto'}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
-                ))}
-              </div>
-            )}
+                )}
 
-            {/* ===== EN CAMINO SUELTO (tarjetas) ===== */}
-            <h3 className="print-hide" style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-              🚚 En camino suelto · <span className="tabular">{totalCamino}</span>
-            </h3>
-            {caminoLibres.length === 0 ? (
-              <div className="card print-hide" style={{ textAlign: 'center', padding: 40, color: 'var(--text-faint)' }}>
-                Nada suelto en camino por ahora.
-              </div>
-            ) : (
-              <div className="print-hide" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
-                {caminoLibres.map(l => {
-                  const estado = (l.ESTADO_VIAJE || '').toUpperCase();
-                  const eta = fmtEta(l.eta);
-                  const enDespacho = despacharId === l.LOTE_ID;
-                  return (
-                    <div key={l.LOTE_ID} className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', borderColor: estadoColor(estado) }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: estadoColor(estado), textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: estadoColor(estado) }} />
-                        🚚 {l.ESTADO_VIAJE}
-                      </div>
+                {/* CONJUNTOS */}
+                {combos.length > 0 && (
+                  <>
+                    <h3 style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
+                      Conjuntos · <span className="tabular">{combos.length}</span>
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12, marginBottom: 28 }}>
+                      {combos.map(c => {
+                        const eta = fmtEta(c.eta);
+                        return (
+                          <div key={c.COMBO_ID} className="card" style={{ padding: 16, position: 'relative', borderColor: c.enCamino ? 'var(--amber)' : undefined }}>
+                            <button
+                              className="btn print-hide"
+                              onClick={() => borrarComboFn(c.COMBO_ID)}
+                              disabled={deletingCombo === c.COMBO_ID}
+                              title="Borrar conjunto"
+                              style={{ position: 'absolute', top: 10, right: 10, padding: '3px 8px', fontSize: 11, color: 'var(--rose)' }}
+                            >
+                              {deletingCombo === c.COMBO_ID ? '…' : '✕'}
+                            </button>
 
-                      <div className="display" style={{ fontSize: 15, marginBottom: 3 }}>{l.NOMBRE_PRODUCTO}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-soft)', marginBottom: 4 }}>
-                        <span className="mono">{l.TALLA}</span> · {l.LONGITUD} · {l.COLOR}
-                        {l.CANT_DISPONIBLE > 1 ? ` · ×${l.CANT_DISPONIBLE}` : ''}
-                      </div>
+                            {c.enCamino ? (
+                              <div style={{ fontSize: 10, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                                🚚 En camino{eta ? ` · llega ${eta}` : ''}
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: 10, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                                Conjunto · listo
+                              </div>
+                            )}
 
-                      <div style={{ fontSize: 12, marginBottom: 10 }}>
-                        {eta ? (
-                          <span className="tabular" style={{ color: 'var(--gold)', fontWeight: 500 }}>Llega {eta}</span>
-                        ) : (
-                          <span style={{ color: 'var(--text-faint)' }}>Por despachar</span>
+                            {[c.superior, c.inferior].map((p, i) => {
+                              const estado = (p.ESTADO_VIAJE || '').toUpperCase();
+                              const enDespacho = despacharId === p.LOTE_ID;
+                              return (
+                                <div key={p.LOTE_ID} style={{ marginBottom: i === 0 ? 8 : 0 }}>
+                                  {i === 1 && <div style={{ fontSize: 13, color: c.enCamino ? 'var(--amber)' : 'var(--gold)', margin: '2px 0' }}>+</div>}
+                                  <div className="display" style={{ fontSize: 14 }}>{p.NOMBRE_PRODUCTO} {p.enCamino ? '🚚' : ''}</div>
+                                  <div style={{ fontSize: 11, color: 'var(--text-soft)' }}>{p.TALLA} · {p.LONGITUD} · {p.COLOR}</div>
+
+                                  {p.enCamino && (
+                                    <div style={{ marginTop: 6 }}>
+                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: estadoColor(estado), marginBottom: isAdmin ? 6 : 0 }}>
+                                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: estadoColor(estado) }} />
+                                        {p.ESTADO_VIAJE}
+                                      </span>
+
+                                      {isAdmin && !enDespacho && (
+                                        <div className="print-hide">
+                                          {estado === 'EN TRANSITO A FL' && (
+                                            <button className="btn" onClick={() => doAccion(p.LOTE_ID, 'LLEGO_FL')} disabled={working === p.LOTE_ID} style={{ padding: '4px 10px', fontSize: 11 }}>
+                                              {working === p.LOTE_ID ? '…' : 'Llegó a FL'}
+                                            </button>
+                                          )}
+                                          {estado === 'EN BODEGA FL' && (
+                                            <button className="btn btn-primary" onClick={() => openDespachar(p.LOTE_ID)} disabled={working === p.LOTE_ID} style={{ padding: '4px 10px', fontSize: 11 }}>
+                                              Despachar a EC
+                                            </button>
+                                          )}
+                                          {estado === 'EN CAMINO A EC' && (
+                                            <button className="btn" onClick={() => doAccion(p.LOTE_ID, 'LLEGO_EC')} disabled={working === p.LOTE_ID} style={{ padding: '4px 10px', fontSize: 11 }}>
+                                              {working === p.LOTE_ID ? '…' : 'Llegó a EC'}
+                                            </button>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {isAdmin && enDespacho && (
+                                        <div className="print-hide" style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4, padding: 10, background: 'var(--bg)', borderRadius: 4 }}>
+                                          <div>
+                                            <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Courier</label>
+                                            <select className="input" value={despCourier} onChange={(e) => setDespCourier(e.target.value)} style={{ marginTop: 2, padding: '5px 8px', fontSize: 12 }}>
+                                              {couriersActivos.length === 0 && <option value="">(sin couriers)</option>}
+                                              {couriersActivos.map(co => <option key={co.COURIER} value={co.COURIER}>{co.COURIER}</option>)}
+                                            </select>
+                                          </div>
+                                          <div>
+                                            <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Fecha de salida</label>
+                                            <input type="date" className="input" value={despFecha} onChange={(e) => setDespFecha(e.target.value)} style={{ marginTop: 2, padding: '5px 8px', fontSize: 12 }} />
+                                          </div>
+                                          <div style={{ display: 'flex', gap: 6 }}>
+                                            <button className="btn" onClick={() => setDespacharId('')} disabled={working === p.LOTE_ID} style={{ flex: 1, justifyContent: 'center', padding: '5px 8px', fontSize: 11 }}>
+                                              Cancelar
+                                            </button>
+                                            <button className="btn btn-primary" onClick={() => confirmDespachar(p.LOTE_ID)} disabled={working === p.LOTE_ID} style={{ flex: 1, justifyContent: 'center', padding: '5px 8px', fontSize: 11 }}>
+                                              {working === p.LOTE_ID ? '…' : 'Confirmar'}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {/* DISPONIBLE SUELTO */}
+                <h3 style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
+                  Disponible suelto · <span className="tabular">{totalPiezas}</span>
+                </h3>
+                {lotesLibres.length === 0 ? (
+                  <div className="card" style={{ textAlign: 'center', padding: 40, color: 'var(--text-faint)', marginBottom: 28 }}>
+                    No hay piezas sueltas disponibles.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12, marginBottom: 28 }}>
+                    {lotesLibres.map(l => (
+                      <div key={l.LOTE_ID} className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', borderColor: !l.tieneCourier ? 'var(--amber)' : undefined }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                          <span style={{ fontSize: 10, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{l.TIPO_PRENDA || 'Pieza'}</span>
+                          <span className="tabular" style={{ fontSize: 13, fontWeight: 500 }}>
+                            {l.CANT_DISPONIBLE > 1 ? `×${l.CANT_DISPONIBLE}` : ''}
+                            {!l.tieneCourier && <span title="Sin courier cargado todavía" style={{ marginLeft: 6, color: 'var(--amber)' }}>⚠</span>}
+                          </span>
+                        </div>
+                        <div className="display" style={{ fontSize: 15, marginBottom: 3 }}>{l.NOMBRE_PRODUCTO}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-soft)', marginBottom: 12 }}>
+                          <span className="mono">{l.TALLA}</span> · {l.LONGITUD} · {l.COLOR}
+                        </div>
+                        <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--text-faint)' }}>
+                          <span>{fmtDate(l.FECHA_ENTRADA)}</span>
+                          {isAdmin && <span className="mono print-hide">{l.LOTE_ID}</span>}
+                        </div>
+                        {isAdmin && (
+                          <div className="tabular print-hide" style={{ fontSize: 12, color: 'var(--text-soft)', marginTop: 4, textAlign: 'right' }}>
+                            {fmtMoney(l.COSTO_UNITARIO)}
+                          </div>
                         )}
                       </div>
+                    ))}
+                  </div>
+                )}
 
-                      {isAdmin && (
-                        <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 10 }}>
-                          <span className="mono">{l.LOTE_ID}</span>
-                          {l.TRACKING ? <> · {l.TRANSPORTE || ''} {l.TRACKING}</> : ''}
-                          {' · '}<span className="tabular">{fmtMoney(l.COSTO_UNITARIO)}</span>
-                        </div>
-                      )}
-
-                      {isAdmin && (
-                        <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: 12 }}>
-                          {estado === 'EN TRANSITO A FL' && (
-                            <button className="btn" onClick={() => doAccion(l.LOTE_ID, 'LLEGO_FL')} disabled={working === l.LOTE_ID} style={{ width: '100%', justifyContent: 'center', padding: '7px 10px', fontSize: 12 }}>
-                              {working === l.LOTE_ID ? '…' : 'Llegó a FL'}
-                            </button>
+                {/* EN CAMINO SUELTO */}
+                <h3 className="print-hide" style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
+                  🚚 En camino suelto · <span className="tabular">{totalCamino}</span>
+                </h3>
+                {caminoLibres.length === 0 ? (
+                  <div className="card print-hide" style={{ textAlign: 'center', padding: 40, color: 'var(--text-faint)' }}>
+                    Nada suelto en camino por ahora.
+                  </div>
+                ) : (
+                  <div className="print-hide" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+                    {caminoLibres.map(l => {
+                      const estado = (l.ESTADO_VIAJE || '').toUpperCase();
+                      const eta = fmtEta(l.eta);
+                      const enDespacho = despacharId === l.LOTE_ID;
+                      return (
+                        <div key={l.LOTE_ID} className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', borderColor: estadoColor(estado) }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: estadoColor(estado), textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: estadoColor(estado) }} />
+                            🚚 {l.ESTADO_VIAJE}
+                          </div>
+                          <div className="display" style={{ fontSize: 15, marginBottom: 3 }}>{l.NOMBRE_PRODUCTO}</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-soft)', marginBottom: 4 }}>
+                            <span className="mono">{l.TALLA}</span> · {l.LONGITUD} · {l.COLOR}
+                            {l.CANT_DISPONIBLE > 1 ? ` · ×${l.CANT_DISPONIBLE}` : ''}
+                          </div>
+                          <div style={{ fontSize: 12, marginBottom: 10 }}>
+                            {eta ? (
+                              <span className="tabular" style={{ color: 'var(--gold)', fontWeight: 500 }}>Llega {eta}</span>
+                            ) : (
+                              <span style={{ color: 'var(--text-faint)' }}>Por despachar</span>
+                            )}
+                          </div>
+                          {isAdmin && (
+                            <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 10 }}>
+                              <span className="mono">{l.LOTE_ID}</span>
+                              {l.TRACKING ? <> · {l.TRANSPORTE || ''} {l.TRACKING}</> : ''}
+                              {' · '}<span className="tabular">{fmtMoney(l.COSTO_UNITARIO)}</span>
+                            </div>
                           )}
-                          {estado === 'EN BODEGA FL' && !enDespacho && (
-                            <button className="btn btn-primary" onClick={() => openDespachar(l.LOTE_ID)} disabled={working === l.LOTE_ID} style={{ width: '100%', justifyContent: 'center', padding: '7px 10px', fontSize: 12 }}>
-                              Despachar a EC
-                            </button>
-                          )}
-                          {estado === 'EN CAMINO A EC' && (
-                            <button className="btn" onClick={() => doAccion(l.LOTE_ID, 'LLEGO_EC')} disabled={working === l.LOTE_ID} style={{ width: '100%', justifyContent: 'center', padding: '7px 10px', fontSize: 12 }}>
-                              {working === l.LOTE_ID ? '…' : 'Llegó a EC'}
-                            </button>
-                          )}
-
-                          {enDespacho && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-                              <div>
-                                <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Courier</label>
-                                <select className="input" value={despCourier} onChange={(e) => setDespCourier(e.target.value)} style={{ marginTop: 2, padding: '6px 10px', fontSize: 13 }}>
-                                  {couriersActivos.length === 0 && <option value="">(sin couriers)</option>}
-                                  {couriersActivos.map(c => <option key={c.COURIER} value={c.COURIER}>{c.COURIER}</option>)}
-                                </select>
-                              </div>
-                              <div>
-                                <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Fecha de salida</label>
-                                <input type="date" className="input" value={despFecha} onChange={(e) => setDespFecha(e.target.value)} style={{ marginTop: 2, padding: '6px 10px', fontSize: 13 }} />
-                              </div>
-                              <div style={{ display: 'flex', gap: 8 }}>
-                                <button className="btn" onClick={() => setDespacharId('')} disabled={working === l.LOTE_ID} style={{ flex: 1, justifyContent: 'center', padding: '6px 10px', fontSize: 12 }}>
-                                  Cancelar
+                          {isAdmin && (
+                            <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+                              {estado === 'EN TRANSITO A FL' && (
+                                <button className="btn" onClick={() => doAccion(l.LOTE_ID, 'LLEGO_FL')} disabled={working === l.LOTE_ID} style={{ width: '100%', justifyContent: 'center', padding: '7px 10px', fontSize: 12 }}>
+                                  {working === l.LOTE_ID ? '…' : 'Llegó a FL'}
                                 </button>
-                                <button className="btn btn-primary" onClick={() => confirmDespachar(l.LOTE_ID)} disabled={working === l.LOTE_ID} style={{ flex: 1, justifyContent: 'center', padding: '6px 10px', fontSize: 12 }}>
-                                  {working === l.LOTE_ID ? '…' : 'Confirmar'}
+                              )}
+                              {estado === 'EN BODEGA FL' && !enDespacho && (
+                                <button className="btn btn-primary" onClick={() => openDespachar(l.LOTE_ID)} disabled={working === l.LOTE_ID} style={{ width: '100%', justifyContent: 'center', padding: '7px 10px', fontSize: 12 }}>
+                                  Despachar a EC
                                 </button>
-                              </div>
+                              )}
+                              {estado === 'EN CAMINO A EC' && (
+                                <button className="btn" onClick={() => doAccion(l.LOTE_ID, 'LLEGO_EC')} disabled={working === l.LOTE_ID} style={{ width: '100%', justifyContent: 'center', padding: '7px 10px', fontSize: 12 }}>
+                                  {working === l.LOTE_ID ? '…' : 'Llegó a EC'}
+                                </button>
+                              )}
+                              {enDespacho && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+                                  <div>
+                                    <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Courier</label>
+                                    <select className="input" value={despCourier} onChange={(e) => setDespCourier(e.target.value)} style={{ marginTop: 2, padding: '6px 10px', fontSize: 13 }}>
+                                      {couriersActivos.length === 0 && <option value="">(sin couriers)</option>}
+                                      {couriersActivos.map(c => <option key={c.COURIER} value={c.COURIER}>{c.COURIER}</option>)}
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Fecha de salida</label>
+                                    <input type="date" className="input" value={despFecha} onChange={(e) => setDespFecha(e.target.value)} style={{ marginTop: 2, padding: '6px 10px', fontSize: 13 }} />
+                                  </div>
+                                  <div style={{ display: 'flex', gap: 8 }}>
+                                    <button className="btn" onClick={() => setDespacharId('')} disabled={working === l.LOTE_ID} style={{ flex: 1, justifyContent: 'center', padding: '6px 10px', fontSize: 12 }}>
+                                      Cancelar
+                                    </button>
+                                    <button className="btn btn-primary" onClick={() => confirmDespachar(l.LOTE_ID)} disabled={working === l.LOTE_ID} style={{ flex: 1, justifyContent: 'center', padding: '6px 10px', fontSize: 12 }}>
+                                      {working === l.LOTE_ID ? '…' : 'Confirmar'}
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
