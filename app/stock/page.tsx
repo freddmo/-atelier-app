@@ -40,7 +40,7 @@ function ChecklistAuditoria({ lotes }: { lotes: LoteStock[] }) {
 
   function iniciar() {
     const init: Record<string, boolean> = {};
-    lotes.forEach(l => { init[l.LOTE_ID] = true; });
+    lotes.forEach(l => { init[l.LOTE_ID] = false; });
     setChecks(init);
     setIniciado(true);
   }
@@ -56,7 +56,7 @@ function ChecklistAuditoria({ lotes }: { lotes: LoteStock[] }) {
 
   const encontrados = Object.values(checks).filter(Boolean).length;
   const total = lotes.length;
-  const faltantes = lotes.filter(l => checks[l.LOTE_ID] === false);
+  const faltantes = lotes.filter(l => !checks[l.LOTE_ID]);
 
   function copiarReporte() {
     const hoy = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
