@@ -5,6 +5,17 @@ import { useRouter } from 'next/navigation';
 import { api, LoteStock, LoteEnCamino, Courier, Combo } from '@/lib/api';
 import { auth } from '@/lib/auth';
 import Navbar from '@/components/Navbar';
+import { useState, useEffect, useRef } from 'react';
+
+
+type Material = {
+  ID: string;
+  NOMBRE: string;
+  CATEGORIA: string;
+  STOCK: number;
+  STOCK_MINIMO: number;
+  COSTO: number;
+};
 
 function fmtMoney(n: number) {
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -216,6 +227,82 @@ function ChecklistAuditoria({ lotes }: { lotes: LoteStock[] }) {
   );
 }
 
+function FilaMaterial({
+  item, tabla, saving, onSave
+}: {
+  item: Material;
+  tabla: 'empaque' | 'regalos';
+  saving: boolean;
+  onSave: (tabla: 'empaque' | 'regalos', id: string, cantidad: number) => void;
+}) {
+  const [local, setLocal] = useState(String(item.STOCK));
+  const ref = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setLocal(String(item.STOCK)); }, [item.STOCK]);
+
+  function commit() {
+    const n = Number(local);
+    if (!isNaN(n) && n >= 0 && n !== item.STOCK) onSave(tabla, item.ID, n);
+  }
+
+  const bajo = item.STOCK <= item.STOCK_MINIMO;
+  const agotado = item.STOCK === 0;
+
+  return (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      padding: '12px 16px',
+      background: agotado ? 'var(--rose-bg)' : bajo ? 'rgba(245,158,11,0.06)' : 'var(--surface)',
+      border: `1px solid ${agotado ? 'var(--rose)' : bajo ? 'var(--amber)' : 'var(--border)'}`,
+      borderRadius: 6,
+    }}>
+      {/* Alerta */}
+      <div style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+        background: agotado ? 'var(--rose)' : bajo ? 'var(--amber)' : 'var(--green)' }} />
+
+      {/* Nombre */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: agotado ? 500 : 400 }}>
+          {item.NOMBRE}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 1 }}>
+          {item.ID} · mín {item.STOCK_MINIMO}
+          {agotado && <span style={{ color: 'var(--rose)', fontWeight: 600 }}> · AGOTADO</span>}
+          {!agotado && bajo && <span style={{ color: 'var(--amber)', fontWeight: 500 }}> · stock bajo</span>}
+        </div>
+      </div>
+
+      {/* Campo de stock */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>Stock:</span>
+        <input
+          ref={ref}
+          type="number"
+          min={0}
+          value={local}
+          onChange={e => setLocal(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => { if (e.key === 'Enter') { commit(); ref.current?.blur(); } }}
+          disabled={saving}
+          style={{
+            width: 60,
+            padding: '4px 8px',
+            fontSize: 13,
+            border: '1px solid var(--border)',
+            borderRadius: 4,
+            background: saving ? 'var(--surface)' : 'var(--bg)',
+            color: 'var(--text)',
+            textAlign: 'center',
+            opacity: saving ? 0.5 : 1,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function StockPage() {
   const router = useRouter();
   const [lotes, setLotes] = useState<LoteStock[]>([]);
@@ -225,7 +312,10 @@ export default function StockPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
-  const [tab, setTab] = useState<'inventario' | 'chequeo'>('inventario');
+  const [materiales, setMateriales] = useState<{ empaque: Material[]; regalos: Material[] }>({ empaque: [], regalos: [] });
+  const [savingMaterial, setSavingMaterial] = useState('');
+  const [filtroCategoria, setFiltroCategoria] = useState('todas');
+  const [tab, setTab] = useState<'inventario' | 'chequeo' | 'materiales'>('inventario');
 
   // Armador de sets
   const [selSuperior, setSelSuperior] = useState('');
@@ -252,20 +342,39 @@ export default function StockPage() {
     setLoading(true);
     setError('');
     try {
-      const [disp, camino, cours, combs] = await Promise.all([
+      const [disp, camino, cours, combs, mats] = await Promise.all([
         api.getStockDisponible(),
         api.getLotesEnCamino(),
         api.getCouriers().catch(() => [] as Courier[]),
         api.getCombos().catch(() => [] as Combo[]),
+        api.getMateriales().catch(() => ({ empaque: [], regalos: [] })),
       ]);
       setLotes(disp);
       setEnCamino(camino);
       setCouriers(cours);
       setCombos(combs);
+      setMateriales(mats);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleStockMaterial(tabla: 'empaque' | 'regalos', id: string, cantidad: number) {
+    const user = auth.getUser();
+    if (!user) return;
+    setSavingMaterial(id);
+    try {
+      await api.setStockMaterial(tabla, id, cantidad, user.usuario);
+      setMateriales(prev => ({
+        ...prev,
+        [tabla]: prev[tabla].map(m => m.ID === id ? { ...m, STOCK: cantidad } : m)
+      }));
+    } catch (err) {
+      alert('Error al guardar: ' + (err instanceof Error ? err.message : err));
+    } finally {
+      setSavingMaterial('');
     }
   }
 
@@ -398,9 +507,10 @@ export default function StockPage() {
         {/* TABS */}
         <div className="print-hide" style={{ display: 'flex', gap: 2, marginBottom: 28, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
           {([
-            { key: 'inventario', label: '📦 Inventario' },
-            { key: 'chequeo',    label: '✅ Chequeo de bodega' },
-          ] as { key: 'inventario' | 'chequeo'; label: string }[]).map(t => (
+          { key: 'inventario', label: '📦 Inventario' },
+          { key: 'chequeo',    label: '✅ Chequeo de bodega' },
+          { key: 'materiales', label: '🧴 Materiales' },
+        ] as { key: 'inventario' | 'chequeo' | 'materiales'; label: string }[]).map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
@@ -430,6 +540,100 @@ export default function StockPage() {
             {tab === 'chequeo' && (
               <ChecklistAuditoria lotes={lotes} />
             )}
+
+            {/* ===== TAB: MATERIALES ===== */}
+            {tab === 'materiales' && (
+              <div>
+                {/* Resumen alertas */}
+                {(() => {
+                  const agotados = [...materiales.empaque, ...materiales.regalos].filter(m => m.STOCK === 0).length;
+                  const bajos    = [...materiales.empaque, ...materiales.regalos].filter(m => m.STOCK > 0 && m.STOCK <= m.STOCK_MINIMO).length;
+                  if (agotados === 0 && bajos === 0) return null;
+                  return (
+                    <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+                      {agotados > 0 && (
+                        <div style={{ padding: '10px 16px', background: 'var(--rose-bg)', border: '1px solid var(--rose)', borderRadius: 6, fontSize: 13, color: 'var(--rose)', fontWeight: 500 }}>
+                          ❌ {agotados} agotado{agotados !== 1 ? 's' : ''}
+                        </div>
+                      )}
+                      {bajos > 0 && (
+                        <div style={{ padding: '10px 16px', background: 'rgba(245,158,11,0.08)', border: '1px solid var(--amber)', borderRadius: 6, fontSize: 13, color: 'var(--amber)', fontWeight: 500 }}>
+                          ⚠️ {bajos} con stock bajo
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Filtro categoría pines */}
+                {materiales.regalos.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, marginBottom: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Filtrar pines:</span>
+                    {['todas', ...Array.from(new Set(materiales.regalos.map(r => r.CATEGORIA)))].map(cat => (
+                      <button
+                        key={cat}
+                        onClick={() => setFiltroCategoria(cat)}
+                        style={{
+                          padding: '4px 12px', fontSize: 12, borderRadius: 20,
+                          border: `1px solid ${filtroCategoria === cat ? 'var(--gold)' : 'var(--border)'}`,
+                          background: filtroCategoria === cat ? 'rgba(184,149,78,0.1)' : 'var(--surface)',
+                          color: filtroCategoria === cat ? 'var(--gold)' : 'var(--text-soft)',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {cat === 'todas' ? 'Todas' : cat}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Materiales de empaque */}
+                <h3 style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
+                  Materiales de empaque · <span className="tabular">{materiales.empaque.length}</span>
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 28 }}>
+                  {materiales.empaque.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: 32, color: 'var(--text-faint)', fontSize: 13 }}>
+                      No hay materiales de empaque registrados.
+                    </div>
+                  ) : (
+                    materiales.empaque.map(m => (
+                      <FilaMaterial
+                        key={m.ID}
+                        item={m}
+                        tabla="empaque"
+                        saving={savingMaterial === m.ID}
+                        onSave={handleStockMaterial}
+                      />
+                    ))
+                  )}
+                </div>
+
+                {/* Pines y regalos */}
+                <h3 style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
+                  Pines y regalos · <span className="tabular">{materiales.regalos.filter(r => filtroCategoria === 'todas' || r.CATEGORIA === filtroCategoria).length}</span>
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {materiales.regalos
+                    .filter(r => filtroCategoria === 'todas' || r.CATEGORIA === filtroCategoria)
+                    .map(m => (
+                      <FilaMaterial
+                        key={m.ID}
+                        item={m}
+                        tabla="regalos"
+                        saving={savingMaterial === m.ID}
+                        onSave={handleStockMaterial}
+                      />
+                    ))
+                  }
+                </div>
+
+                <div style={{ marginTop: 20, fontSize: 11, color: 'var(--text-faint)' }}>
+                  Escribe la cantidad real y presiona Enter o haz clic fuera para guardar.
+                </div>
+              </div>
+            )}
+            
 
             {/* ===== TAB: INVENTARIO ===== */}
             {tab === 'inventario' && (
