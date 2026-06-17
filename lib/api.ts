@@ -533,4 +533,20 @@ export const api = {
       usuario,
     });
   },
+  async getMateriales(): Promise<{
+    empaque: { ID: string; NOMBRE: string; CATEGORIA: string; STOCK: number; STOCK_MINIMO: number; COSTO: number }[];
+    regalos: { ID: string; NOMBRE: string; CATEGORIA: string; STOCK: number; STOCK_MINIMO: number; COSTO: number }[];
+  }> {
+    return apiCall({ action: 'getMateriales' });
+  },
+
+  async setStockMaterial(tabla: 'empaque' | 'regalos', id: string, cantidad: number, usuario: string) {
+    return apiCall<{ id: string; tabla: string; cantidad: number }>({
+      action: 'setStockMaterial',
+      tabla,
+      id,
+      cantidad: String(cantidad),
+      usuario,
+    });
+  },
 };
