@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react'; 
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, LoteStock, LoteEnCamino, Courier, Combo } from '@/lib/api';
 import { auth } from '@/lib/auth';
 import Navbar from '@/components/Navbar';
-import { useState, useEffect, useRef } from 'react';
 
 
 type Material = {
