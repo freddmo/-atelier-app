@@ -549,4 +549,14 @@ export const api = {
       usuario,
     });
   },
+  async agregarPin(params: { nombre: string; categoria: string; cantidad: number; costo?: number }, usuario: string) {
+    return apiCall<{ id: string; nombre: string; categoria: string; cantidad: number; costo: number }>({
+      action: 'agregarPin',
+      nombre:    params.nombre,
+      categoria: params.categoria,
+      cantidad:  String(params.cantidad),
+      costo:     String(params.costo ?? 1.1),
+      usuario,
+    });
+  },
 };
