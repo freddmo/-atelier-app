@@ -314,6 +314,11 @@ export default function StockPage() {
   const [materiales, setMateriales] = useState<{ empaque: Material[]; regalos: Material[] }>({ empaque: [], regalos: [] });
   const [savingMaterial, setSavingMaterial] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('todas');
+  const [mostrarFormPin, setMostrarFormPin] = useState(false);
+  const [nuevoNombre, setNuevoNombre] = useState('');
+  const [nuevoCategoria, setNuevoCategoria] = useState('General');
+  const [nuevaCantidad, setNuevaCantidad] = useState('0');
+  const [savingPin, setSavingPin] = useState(false);
   const [tab, setTab] = useState<'inventario' | 'chequeo' | 'materiales'>('inventario');
 
   // Armador de sets
@@ -374,6 +379,35 @@ export default function StockPage() {
       alert('Error al guardar: ' + (err instanceof Error ? err.message : err));
     } finally {
       setSavingMaterial('');
+    }
+  }
+
+  async function handleAgregarPin() {
+    const user = auth.getUser();
+    if (!user) return;
+    if (!nuevoNombre.trim()) { alert('Escribe el nombre del pin'); return; }
+    setSavingPin(true);
+    try {
+      const resultado = await api.agregarPin(
+        { nombre: nuevoNombre.trim(), categoria: nuevoCategoria, cantidad: Number(nuevaCantidad) || 0 },
+        user.usuario
+      );
+      setMateriales(prev => ({
+        ...prev,
+        regalos: [...prev.regalos, {
+          ID: resultado.id, NOMBRE: resultado.nombre,
+          CATEGORIA: resultado.categoria, STOCK: resultado.cantidad,
+          STOCK_MINIMO: 1, COSTO: resultado.costo
+        }]
+      }));
+      setNuevoNombre('');
+      setNuevaCantidad('0');
+      setNuevoCategoria('General');
+      setMostrarFormPin(false);
+    } catch (err) {
+      alert('Error: ' + (err instanceof Error ? err.message : err));
+    } finally {
+      setSavingPin(false);
     }
   }
 
@@ -609,23 +643,54 @@ export default function StockPage() {
                 </div>
 
                 {/* Pines y regalos */}
-                <h3 style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
-                  Pines y regalos · <span className="tabular">{materiales.regalos.filter(r => filtroCategoria === 'todas' || r.CATEGORIA === filtroCategoria).length}</span>
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {materiales.regalos
-                    .filter(r => filtroCategoria === 'todas' || r.CATEGORIA === filtroCategoria)
-                    .map(m => (
-                      <FilaMaterial
-                        key={m.ID}
-                        item={m}
-                        tabla="regalos"
-                        saving={savingMaterial === m.ID}
-                        onSave={handleStockMaterial}
-                      />
-                    ))
-                  }
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <h3 style={{ margin: 0, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
+                    Pines y regalos · <span className="tabular">{materiales.regalos.filter(r => filtroCategoria === 'todas' || r.CATEGORIA === filtroCategoria).length}</span>
+                  </h3>
+                  <button className="btn" onClick={() => setMostrarFormPin(v => !v)} style={{ padding: '4px 12px', fontSize: 12 }}>
+                    {mostrarFormPin ? 'Cancelar' : '+ Nuevo pin'}
+                  </button>
                 </div>
+
+                {mostrarFormPin && (
+                  <div style={{ padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ fontSize: 12, color: 'var(--text-soft)', fontWeight: 500 }}>Agregar nuevo pin</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px', gap: 8 }}>
+                      <div>
+                        <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Nombre</label>
+                        <input
+                          className="input"
+                          value={nuevoNombre}
+                          onChange={e => setNuevoNombre(e.target.value)}
+                          placeholder="Ej: Diente con corazón"
+                          style={{ marginTop: 4, fontSize: 13 }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Categoría</label>
+                        <select className="input" value={nuevoCategoria} onChange={e => setNuevoCategoria(e.target.value)} style={{ marginTop: 4, fontSize: 13 }}>
+                          {Array.from(new Set(['General', ...materiales.regalos.map(r => r.CATEGORIA)])).map(cat => (
+                            <option key={cat} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Cantidad</label>
+                        <input
+                          className="input"
+                          type="number"
+                          min={0}
+                          value={nuevaCantidad}
+                          onChange={e => setNuevaCantidad(e.target.value)}
+                          style={{ marginTop: 4, fontSize: 13 }}
+                        />
+                      </div>
+                    </div>
+                    <button className="btn btn-primary" onClick={handleAgregarPin} disabled={savingPin || !nuevoNombre.trim()} style={{ alignSelf: 'flex-end', padding: '6px 16px', fontSize: 13 }}>
+                      {savingPin ? 'Guardando…' : 'Guardar pin'}
+                    </button>
+                  </div>
+                )}
 
                 <div style={{ marginTop: 20, fontSize: 11, color: 'var(--text-faint)' }}>
                   Escribe la cantidad real y presiona Enter o haz clic fuera para guardar.
