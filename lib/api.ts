@@ -571,4 +571,13 @@ export const api = {
       usuario,
     });
   },
+  async agregarDescuento(ordenId: string, monto: number, nota: string, usuario: string) {
+    return apiCall<{ ordenId: string; monto: number; nota: string }>({
+      action: 'agregarDescuento',
+      ordenId,
+      monto: String(monto),
+      nota,
+      usuario,
+    });
+  },
 };
