@@ -559,4 +559,16 @@ export const api = {
       usuario,
     });
   },
+  async actualizarCliente(
+    clienteId: string,
+    campos: Partial<{ direccion: string; ciudad: string; telefono: string; email: string; industria: string; cedulaRuc: string }>,
+    usuario: string
+  ) {
+    return apiCall<{ clienteId: string; cambios: string[] }>({
+      action: 'actualizarCliente',
+      clienteId,
+      campos: JSON.stringify(campos),
+      usuario,
+    });
+  },
 };
