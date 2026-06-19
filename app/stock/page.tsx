@@ -692,6 +692,21 @@ export default function StockPage() {
                   </div>
                 )}
 
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {materiales.regalos
+                    .filter(r => filtroCategoria === 'todas' || r.CATEGORIA === filtroCategoria)
+                    .map(m => (
+                      <FilaMaterial
+                        key={m.ID}
+                        item={m}
+                        tabla="regalos"
+                        saving={savingMaterial === m.ID}
+                        onSave={handleStockMaterial}
+                      />
+                    ))
+                  }
+                </div>
+
                 <div style={{ marginTop: 20, fontSize: 11, color: 'var(--text-faint)' }}>
                   Escribe la cantidad real y presiona Enter o haz clic fuera para guardar.
                 </div>
