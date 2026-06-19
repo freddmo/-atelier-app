@@ -18,6 +18,12 @@
   --rose-bg: #F7E5E3;
   --blue: #4A6B8A;
   --blue-bg: #E5EDF3;
+  --purple: #6B5B8A;
+  --purple-bg: #EDE8F3;
+  --teal: #3A7A7A;
+  --teal-bg: #E3F0F0;
+  --orange: #C06020;
+  --orange-bg: #FAE8DC;
 }
 
 * { -webkit-font-smoothing: antialiased; box-sizing: border-box; }
@@ -183,14 +189,16 @@ body {
   overflow-y: auto;
 }
 
-.state-HACER-PEDIDO       { background: var(--bg);       color: var(--text-soft); }
-.state-PEDIDO-HECHO       { background: var(--blue-bg);  color: var(--blue); }
-.state-EN-TRANSITO-A-FL   { background: var(--blue-bg);  color: var(--blue); }
-.state-CON-FREDDY         { background: var(--amber-bg); color: var(--amber); }
-.state-EN-CAMINO-A-EC     { background: var(--amber-bg); color: var(--amber); }
-.state-EN-BODEGA-EC       { background: var(--blue-bg);  color: var(--blue); }
-.state-LISTO-PARA-ENVIAR  { background: var(--green-bg); color: var(--green); }
-.state-ENTREGADO          { background: var(--green-bg); color: var(--green); }
+.state-HACER-PEDIDO       { background: #F0EDEA;          color: var(--text-faint); border: 1px solid var(--border); }
+.state-PEDIDO-HECHO       { background: var(--blue-bg);   color: var(--blue); }
+.state-EN-TRANSITO-A-FL   { background: var(--purple-bg); color: var(--purple); }
+.state-CON-FREDDY         { background: var(--orange-bg); color: var(--orange); }
+.state-EN-CAMINO-A-EC     { background: var(--amber-bg);  color: var(--amber); }
+.state-EN-BODEGA-EC       { background: var(--teal-bg);   color: var(--teal); }
+.state-LISTO-PARA-ENVIAR  { background: var(--green-bg);  color: var(--green); }
+.state-ENTREGADO          { background: #E8F5EE;          color: #2D6E4A; font-weight: 600; }
+.state-CANCELADO          { background: var(--rose-bg);   color: var(--rose); }
+.state-ENTREGA-PARCIAL    { background: var(--amber-bg);  color: var(--amber); }
 
 @media (max-width: 768px) {
   .hide-mobile { display: none !important; }
