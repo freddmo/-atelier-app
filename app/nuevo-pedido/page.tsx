@@ -55,7 +55,9 @@ export default function NuevoPedidoPage() {
     nombre: '', telefono: '', direccion: '', ciudad: '', cedulaRuc: '', industria: '', email: '',
   });
   const [guardandoCliente, setGuardandoCliente] = useState(false);
-
+  const [editandoDireccion, setEditandoDireccion] = useState(false);
+  const [editFields, setEditFields] = useState({ direccion: '', ciudad: '', telefono: '' });
+  const [guardandoEdit, setGuardandoEdit] = useState(false);
   const [lineas, setLineas] = useState<LineaProducto[]>([]);
   const [precioNegociado, setPrecioNegociado] = useState('');
   const [notas, setNotas] = useState('');
@@ -113,6 +115,26 @@ export default function NuevoPedidoPage() {
       alert('Error al guardar cliente: ' + (err instanceof Error ? err.message : 'desconocido'));
     } finally {
       setGuardandoCliente(false);
+    }
+  }
+
+  async function handleActualizarCliente() {
+    if (!clienteSel) return;
+    const user = auth.getUser();
+    if (!user) return;
+    setGuardandoEdit(true);
+    try {
+      await api.actualizarCliente(clienteSel.CLIENTE_ID, editFields, user.usuario);
+      const actualizado = { ...clienteSel, ...editFields };
+      setClienteSel(actualizado);
+      setClientes(prev => prev.map(c => c.CLIENTE_ID === clienteSel.CLIENTE_ID ? actualizado : c));
+      setEditandoDireccion(false);
+      setToast('✅ Datos actualizados');
+      setTimeout(() => setToast(''), 3000);
+    } catch (err) {
+      alert('Error: ' + (err instanceof Error ? err.message : 'desconocido'));
+    } finally {
+      setGuardandoEdit(false);
     }
   }
 
@@ -330,14 +352,59 @@ export default function NuevoPedidoPage() {
               {!clienteEsNuevo ? (
                 <div>
                   {clienteSel ? (
-                    <div style={{ padding: '12px 16px', background: 'var(--bg)', borderRadius: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div className="display" style={{ fontSize: 16 }}>{clienteSel.NOMBRE}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>
-                          {clienteSel.CIUDAD} · {clienteSel.TELEFONO} · {clienteSel.INDUSTRIA}
+                    <div>
+                      <div style={{ padding: '12px 16px', background: 'var(--bg)', borderRadius: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div className="display" style={{ fontSize: 16 }}>{clienteSel.NOMBRE}</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>
+                            {clienteSel.CIUDAD} · {clienteSel.TELEFONO} · {clienteSel.INDUSTRIA}
+                          </div>
+                          {clienteSel.DIRECCION && (
+                            <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 2 }}>{clienteSel.DIRECCION}</div>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            className="btn"
+                            onClick={() => {
+                              setEditFields({ direccion: clienteSel.DIRECCION || '', ciudad: clienteSel.CIUDAD || '', telefono: clienteSel.TELEFONO || '' });
+                              setEditandoDireccion(true);
+                            }}
+                            style={{ padding: '4px 10px', fontSize: 12 }}
+                          >
+                            ✏️ Editar
+                          </button>
+                          <button className="btn" onClick={() => { setClienteSel(null); setEditandoDireccion(false); }} style={{ padding: '4px 10px', fontSize: 12 }}>Cambiar</button>
                         </div>
                       </div>
-                      <button className="btn" onClick={() => setClienteSel(null)} style={{ padding: '4px 10px', fontSize: 12 }}>Cambiar</button>
+
+                      {editandoDireccion && (
+                        <div style={{ marginTop: 10, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4 }}>
+                          <div style={{ fontSize: 11, color: 'var(--text-soft)', fontWeight: 500, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                            Actualizar datos de {clienteSel.NOMBRE}
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                            <div>
+                              <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Dirección</label>
+                              <input className="input" value={editFields.direccion} onChange={e => setEditFields(p => ({ ...p, direccion: e.target.value }))} style={{ marginTop: 4, fontSize: 13 }} />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Ciudad</label>
+                              <input className="input" value={editFields.ciudad} onChange={e => setEditFields(p => ({ ...p, ciudad: e.target.value }))} style={{ marginTop: 4, fontSize: 13 }} />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Teléfono</label>
+                              <input className="input" value={editFields.telefono} onChange={e => setEditFields(p => ({ ...p, telefono: e.target.value }))} style={{ marginTop: 4, fontSize: 13 }} />
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
+                            <button className="btn" onClick={() => setEditandoDireccion(false)} disabled={guardandoEdit} style={{ fontSize: 12 }}>Cancelar</button>
+                            <button className="btn btn-primary" onClick={handleActualizarCliente} disabled={guardandoEdit} style={{ fontSize: 12 }}>
+                              {guardandoEdit ? 'Guardando…' : 'Guardar cambios'}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div>
