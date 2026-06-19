@@ -80,7 +80,11 @@ export default function PedidoDetallePage() {
   const [isBodega, setIsBodega] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
   const [cambioItem, setCambioItem] = useState<any | null>(null);
-
+  const [showDescuento, setShowDescuento] = useState(false);
+  const [descMonto, setDescMonto] = useState('');
+  const [descNota, setDescNota] = useState('');
+  const [guardandoDesc, setGuardandoDesc] = useState(false);
+  
   useEffect(() => {
     const user = auth.getUser();
     if (!user) {
@@ -172,6 +176,27 @@ export default function PedidoDetallePage() {
     }
   }
 
+  async function handleAplicarDescuento() {
+    const monto = Number(descMonto);
+    if (isNaN(monto) || monto <= 0) { alert('Escribe un descuento válido'); return; }
+    const user = auth.getUser();
+    if (!user || !pedido) return;
+    setGuardandoDesc(true);
+    try {
+      await api.agregarDescuento(pedido.ORDEN_ID, monto, descNota.trim(), user.usuario);
+      setShowDescuento(false);
+      setDescMonto('');
+      setDescNota('');
+      setToast(`Descuento de ${fmtMoney(monto)} aplicado`);
+      setTimeout(() => setToast(''), 3000);
+      loadPedido();
+    } catch (err) {
+      alert('Error: ' + (err instanceof Error ? err.message : 'desconocido'));
+    } finally {
+      setGuardandoDesc(false);
+    }
+  }
+  
   function copyToClipboard(text: string, message: string) {
     navigator.clipboard.writeText(text);
     setToast(message);
@@ -453,6 +478,55 @@ export default function PedidoDetallePage() {
               >
                 + Registrar pago
               </button>
+
+              {saldo > 0.005 && (
+                <button
+                  className="btn"
+                  style={{ width: '100%', justifyContent: 'center', marginTop: 8, fontSize: 12 }}
+                  onClick={() => { setShowDescuento(v => !v); setDescMonto(''); setDescNota(''); }}
+                >
+                  {showDescuento ? 'Cancelar descuento' : '% Aplicar descuento de último minuto'}
+                </button>
+              )}
+
+              {showDescuento && (
+                <div style={{ marginTop: 10, padding: 14, background: 'var(--bg)', border: '1px solid var(--gold)', borderRadius: 4 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-soft)', marginBottom: 10 }}>
+                    Baja el total del pedido sin tocar los precios. El saldo se ajusta solo.
+                  </div>
+                  <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Monto del descuento $</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="input"
+                    value={descMonto}
+                    onChange={e => setDescMonto(e.target.value)}
+                    placeholder="3.00"
+                    style={{ marginTop: 4, marginBottom: 10, fontSize: 13 }}
+                  />
+                  <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Motivo (opcional)</label>
+                  <input
+                    className="input"
+                    value={descNota}
+                    onChange={e => setDescNota(e.target.value)}
+                    placeholder="Demora en la entrega"
+                    style={{ marginTop: 4, marginBottom: 12, fontSize: 13 }}
+                  />
+                  {descMonto && Number(descMonto) > 0 && (
+                    <div style={{ fontSize: 12, color: 'var(--text-soft)', marginBottom: 10 }}>
+                      Nuevo saldo: <span className="tabular" style={{ color: 'var(--green)', fontWeight: 500 }}>{fmtMoney(Math.max(0, saldo - Number(descMonto)))}</span>
+                    </div>
+                  )}
+                  <button
+                    className="btn btn-primary"
+                    style={{ width: '100%', justifyContent: 'center', fontSize: 12 }}
+                    onClick={handleAplicarDescuento}
+                    disabled={guardandoDesc || !descMonto || Number(descMonto) <= 0}
+                  >
+                    {guardandoDesc ? 'Aplicando…' : 'Aplicar descuento'}
+                  </button>
+                </div>
+              )}
 
               <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
                 <div style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', marginBottom: 8 }}>
