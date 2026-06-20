@@ -68,17 +68,20 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
   }
 
   async function confirmarConPines() {
-    if (!estadoPendiente || !pinPrincipal) return;
+    if (!estadoPendiente) return;
     setLoading(true);
     try {
       const pines: { regaloid: string; cantidad: number }[] = [];
-      if (principalObj) pines.push({ regaloid: pinPrincipal, cantidad: 1 });
+      if (pinPrincipal && pinPrincipal !== '__none__' && principalObj) {
+        pines.push({ regaloid: pinPrincipal, cantidad: 1 });
+      }
       if (agregarExtra && pinExtra) {
         const existente = pines.find(p => p.regaloid === pinExtra);
         if (existente) existente.cantidad += 1;
         else pines.push({ regaloid: pinExtra, cantidad: 1 });
       }
-      await onChange(estadoPendiente, empaqueSeleccionado, pines, cantidadCajas);
+      const empaqueFinal = empaqueSeleccionado === '__none__' ? '' : empaqueSeleccionado;
+      await onChange(estadoPendiente, empaqueFinal, pines, cantidadCajas);
     } finally {
       setLoading(false);
     }
@@ -98,6 +101,17 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+            <div
+              onClick={() => setEmpaqueSeleccionado('__none__')}
+              style={{
+                padding: '14px 16px', borderRadius: 4, cursor: 'pointer',
+                border: `1px solid ${empaqueSeleccionado === '__none__' ? 'var(--text)' : 'var(--border)'}`,
+                background: empaqueSeleccionado === '__none__' ? 'var(--bg)' : 'transparent',
+              }}
+            >
+              <span style={{ fontSize: 14, fontWeight: empaqueSeleccionado === '__none__' ? 500 : 400 }}>Sin empaque</span>
+              <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 4 }}>No se cobra empaque a este pedido</div>
+            </div>
             {setsEmpaque.map(s => (
               <div
                 key={s.SET_ID}
@@ -181,7 +195,7 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
                 }}
                 style={{ marginTop: 4 }}
               >
-                {pinesConStock.length === 0 && <option value="">(sin pines en stock)</option>}
+                <option value="__none__">— Sin pin —</option>
                 {pinesConStock.map(r => (
                   <option key={r.REGALO_ID} value={r.REGALO_ID}>
                     {r.NOMBRE} · stock: {r.STOCK}
@@ -190,6 +204,7 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
               </select>
             </div>
 
+            {pinPrincipal !== '__none__' && (
             <div>
               <div
                 onClick={() => {
@@ -223,6 +238,7 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
                 </select>
               )}
             </div>
+            )}
           </div>
 
           <div style={{ background: 'var(--bg)', padding: '12px 14px', borderRadius: 4, marginBottom: 16 }}>
@@ -247,7 +263,7 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
 
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setPaso('empaque')} disabled={loading}>← Volver</button>
-            <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={confirmarConPines} disabled={!pinPrincipal || loading}>
+            <button className="btn btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={confirmarConPines} disabled={loading}>
               {loading ? 'Guardando…' : 'Confirmar ✓'}
             </button>
           </div>
