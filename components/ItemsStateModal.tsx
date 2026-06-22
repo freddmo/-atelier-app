@@ -26,6 +26,9 @@ type Props = {
 };
 
 export default function ItemsStateModal({ ordenId, items, estadoCabecera, isAdmin, onClose, onDone }: Props) {
+  // Solo ítems vivos: los CANCELADO no se pueden entregar ni mover
+  const itemsVisibles = items.filter(it => String(it.ESTATUS_ITEM || '').toUpperCase().trim() !== 'CANCELADO');
+
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [target, setTarget] = useState<Estado | ''>('');
   const [setsEmpaque, setSetsEmpaque] = useState<SetEmpaque[]>([]);
@@ -46,8 +49,8 @@ export default function ItemsStateModal({ ordenId, items, estadoCabecera, isAdmi
     setSelected(next);
   }
   function toggleAll() {
-    if (selected.size === items.length) setSelected(new Set());
-    else setSelected(new Set(items.map(i => i._rowNum)));
+    if (selected.size === itemsVisibles.length) setSelected(new Set());
+    else setSelected(new Set(itemsVisibles.map(i => i._rowNum)));
   }
   function estadoItem(it: ItemLite): string {
     const e = String(it.ESTATUS_ITEM || '').trim();
@@ -111,11 +114,11 @@ export default function ItemsStateModal({ ordenId, items, estadoCabecera, isAdmi
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
           <span style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Ítems</span>
           <button className="btn" onClick={toggleAll} style={{ padding: '4px 10px', fontSize: 11 }}>
-            {selected.size === items.length ? 'Quitar todos' : 'Marcar todos'}
+            {selected.size === itemsVisibles.length ? 'Quitar todos' : 'Marcar todos'}
           </button>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 18 }}>
-          {items.map(it => (
+          {itemsVisibles.map(it => (
             <div
               key={it._rowNum}
               onClick={() => toggle(it._rowNum)}
