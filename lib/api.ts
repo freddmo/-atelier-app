@@ -580,4 +580,16 @@ export const api = {
       usuario,
     });
   },
+  async perdidaEnTransito(
+    ordenId: string,
+    items: { itemRowNum: number; figsRepone: boolean; sku?: string; talla?: string; longitud?: string; color?: string }[],
+    usuario: string
+  ) {
+    return apiCall<{ ordenId: string; items: any[] }>({
+      action: 'perdidaEnTransito',
+      ordenId,
+      items: JSON.stringify(items),
+      usuario,
+    });
+  },
 };
