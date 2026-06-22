@@ -10,6 +10,7 @@ import StateModal from '@/components/StateModal';
 import PaymentModal from '@/components/PaymentModal';
 import ItemsStateModal from '@/components/ItemsStateModal';
 import CambioItemModal from '@/components/CambioItemModal';
+import PerdidaTransitoModal from '@/components/PerdidaTransitoModal';
 
 function fmtMoney(n: number) {
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -80,6 +81,7 @@ export default function PedidoDetallePage() {
   const [isBodega, setIsBodega] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
   const [cambioItem, setCambioItem] = useState<any | null>(null);
+  const [showPerdida, setShowPerdida] = useState(false);
   const [showDescuento, setShowDescuento] = useState(false);
   const [descMonto, setDescMonto] = useState('');
   const [descNota, setDescNota] = useState('');
@@ -287,6 +289,9 @@ export default function PedidoDetallePage() {
             )}
             {puedeMover && (
               <button className="btn" onClick={() => setShowItemsModal(true)}>Entregar ítems</button>
+            )}
+            {isAdmin && (
+              <button className="btn" onClick={() => setShowPerdida(true)} style={{ color: 'var(--rose)' }}>Pérdida en tránsito</button>
             )}
             <button className="btn btn-primary" onClick={() => setShowModal(true)}>Cambiar estado</button>
           </div>
@@ -709,6 +714,21 @@ export default function PedidoDetallePage() {
           }}
         />
       )}
+
+      {showPerdida && (
+        <PerdidaTransitoModal
+          ordenId={pedido.ORDEN_ID}
+          items={pedido.items as any}
+          onClose={() => setShowPerdida(false)}
+          onDone={(msg) => {
+            setShowPerdida(false);
+            setToast(msg);
+            setTimeout(() => setToast(''), 3000);
+            loadPedido();
+          }}
+        />
+      )}
+      
       
       {toast && (
         <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', background: 'var(--text)', color: 'var(--surface)', padding: '12px 22px', borderRadius: 4, fontSize: 13, zIndex: 100, boxShadow: '0 10px 30px rgba(0,0,0,0.15)' }}>
