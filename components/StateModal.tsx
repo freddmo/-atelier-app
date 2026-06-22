@@ -286,6 +286,7 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
           {ESTADOS.map((s, i) => {
+            if (s === 'ENTREGADO') return null;
             const isCurrent = s === estadoActual;
             const isPast    = i < currentIdx;
             const isNext    = i === currentIdx + 1;
