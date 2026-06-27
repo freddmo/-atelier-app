@@ -64,8 +64,10 @@ function stateClass(estado: string) {
   return 'state-' + estado.replace(/\s+/g, '-');
 }
 
-// Chip de ítem con punto de color
-function ItemChip({ nombre, color }: { nombre: string; color: string }) {
+// Chip de ítem con punto de color, talla y color escrito
+function ItemChip({ nombre, talla, longitud, color }: { nombre: string; talla?: string; longitud?: string; color?: string }) {
+  const tallaTxt = [talla, longitud].filter(Boolean).join(' ').trim();
+  const colorTxt = color ? String(color).trim() : '';
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -73,8 +75,10 @@ function ItemChip({ nombre, color }: { nombre: string; color: string }) {
       background: 'var(--bg)', border: '1px solid var(--border)', color: 'var(--text-soft)',
       whiteSpace: 'nowrap',
     }}>
-      <span style={{ width: 8, height: 8, borderRadius: '50%', background: colorHex(color), border: '1px solid rgba(0,0,0,0.12)', flexShrink: 0 }} />
-      {nombre}
+      <span style={{ width: 8, height: 8, borderRadius: '50%', background: colorHex(color || ''), border: '1px solid rgba(0,0,0,0.12)', flexShrink: 0 }} />
+      <span style={{ color: 'var(--text)' }}>{nombre}</span>
+      {tallaTxt && <span style={{ color: 'var(--text-faint)' }}>· {tallaTxt}</span>}
+      {colorTxt && <span style={{ color: 'var(--text-soft)' }}>· {colorTxt}</span>}
     </span>
   );
 }
@@ -120,7 +124,7 @@ function CardExtra({ pedido }: { pedido: Pedido }) {
         ) : (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {visibles.map((it, i) => (
-              <ItemChip key={i} nombre={shortName(it as any)} color={(it as any).COLOR} />
+              <ItemChip key={i} nombre={shortName(it as any)} talla={(it as any).TALLA} longitud={(it as any).LONGITUD} color={(it as any).COLOR} />
             ))}
           </div>
         )
