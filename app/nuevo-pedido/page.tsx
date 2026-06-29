@@ -614,7 +614,6 @@ export default function NuevoPedidoPage() {
                             );
                           })()}
                         </div>
-                        </div>
                       )}
                       {l.tipo === 'set' && (
                         <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-faint)' }}>
