@@ -579,11 +579,16 @@ export default function NuevoPedidoPage() {
                                 {stockLotes
                                   .map(lote => ({ lote, restante: disponibleLoteParaLinea(lote, l.id) }))
                                   .filter(({ lote, restante }) => restante > 0 || lote.LOTE_ID === l.loteId)
-                                  .map(({ lote, restante }) => (
-                                    <option key={lote.LOTE_ID} value={lote.LOTE_ID}>
-                                      {lote.SKU} {lote.TALLA} {lote.LONGITUD} {lote.COLOR} — {fmtMoney(lote.COSTO_UNITARIO)} ({lote.LOTE_ID}) · quedan {restante}{lote.tieneCourier ? '' : ' ⚠'}
-                                    </option>
-                                  ))}
+                                  .map(({ lote, restante }) => {
+                                    const eta = lote.eta && (lote.eta.fechaMax || lote.eta.fechaMin)
+                                      ? ` ~${lote.eta.fechaMax || lote.eta.fechaMin}` : '';
+                                    const etiqueta = lote.enCamino ? `🚚 EN CAMINO/PREVENTA${eta} · ` : '';
+                                    return (
+                                      <option key={lote.LOTE_ID} value={lote.LOTE_ID}>
+                                        {etiqueta}{lote.SKU} {lote.TALLA} {lote.LONGITUD} {lote.COLOR} — {fmtMoney(lote.COSTO_UNITARIO)} ({lote.LOTE_ID}) · quedan {restante}{lote.tieneCourier ? '' : ' ⚠'}
+                                      </option>
+                                    );
+                                  })}
                               </select>
                             </div>
                             <div>
@@ -595,11 +600,20 @@ export default function NuevoPedidoPage() {
                               <input type="number" step="0.01" className="input" value={l.precioLista || ''} onChange={(e) => updateLinea(l.id, 'precioLista', Number(e.target.value) || 0)} placeholder="0.00" style={{ marginTop: 2, padding: '6px 8px', fontSize: 12 }} />
                             </div>
                           </div>
-                          {l.loteId && (
-                            <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-faint)' }}>
-                              {l.sku} · {l.talla} · {l.longitud} · {l.color} · costo {fmtMoney(l.costoLote || 0)}
-                            </div>
-                          )}
+                          {l.loteId && (() => {
+                            const loteSel = stockLotes.find(x => x.LOTE_ID === l.loteId);
+                            return (
+                              <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-faint)' }}>
+                                {l.sku} · {l.talla} · {l.longitud} · {l.color} · costo {fmtMoney(l.costoLote || 0)}
+                                {loteSel?.enCamino && (
+                                  <span style={{ color: 'var(--amber)', fontWeight: 600, marginLeft: 8 }}>
+                                    🚚 Preventa{loteSel.eta?.fechaMax ? ` · llega ~${loteSel.eta.fechaMax}` : ''}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
                         </div>
                       )}
                       {l.tipo === 'set' && (
