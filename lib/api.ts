@@ -217,6 +217,9 @@ export type LoteStock = {
   FECHA_ENTRADA: string;
   COSTO_UNITARIO: number;
   tieneCourier: boolean;
+  enCamino?: boolean;                          // ← NUEVO
+  ESTADO_VIAJE?: string;                       // ← NUEVO
+  eta?: { fechaMin: string; fechaMax: string } | null;  // ← NUEVO
 };
 
 export type LoteEnCamino = {
