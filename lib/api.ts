@@ -220,6 +220,7 @@ export type LoteStock = {
   enCamino?: boolean;                          // ← NUEVO
   ESTADO_VIAJE?: string;                       // ← NUEVO
   eta?: { fechaMin: string; fechaMax: string } | null;  // ← NUEVO
+  COLOR_HEX?: string;                          // ← NUEVO: hex del color, o '' si no está definido
 };
 
 export type LoteEnCamino = {
@@ -238,6 +239,7 @@ export type LoteEnCamino = {
   COURIER: string;
   FECHA_SALIDA_EC: string;
   eta: { fechaMin: string; fechaMax: string } | null;
+  COLOR_HEX?: string;                          // ← NUEVO: hex del color, o '' si no está definido
 };
 
 export type Courier = {
@@ -549,6 +551,14 @@ export const api = {
       tabla,
       id,
       cantidad: String(cantidad),
+      usuario,
+    });
+  },
+  async setColor(color: string, hex: string, usuario: string) {
+    return apiCall<{ color: string; hex: string }>({
+      action: 'setColor',
+      color,
+      hex,
       usuario,
     });
   },
