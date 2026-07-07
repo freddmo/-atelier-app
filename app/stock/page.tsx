@@ -43,6 +43,93 @@ function estadoColor(e: string) {
   return 'var(--text-soft)';
 }
 
+// ===== RECUADRO DE COLOR + EDITOR (solo admin edita) =====
+function ColorSwatch({
+  color, hex, isAdmin, onSave
+}: {
+  color: string;
+  hex: string;
+  isAdmin: boolean;
+  onSave: (color: string, hex: string) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [val, setVal] = useState(hex || '#CCCCCC');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { setVal(hex || '#CCCCCC'); }, [hex]);
+
+  const tiene = !!hex;
+  const fondo = tiene ? hex : 'transparent';
+
+  async function guardar() {
+    if (!/^#[0-9A-Fa-f]{6}$/.test(val)) { alert('Hex inválido (usa #RRGGBB)'); return; }
+    setSaving(true);
+    try {
+      await onSave(color, val.toUpperCase());
+      setOpen(false);
+    } catch (err) {
+      alert('Error: ' + (err instanceof Error ? err.message : 'desconocido'));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <span style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+      <span
+        onClick={(e) => { if (isAdmin) { e.stopPropagation(); setOpen(o => !o); } }}
+        title={isAdmin ? 'Editar color' : color}
+        style={{
+          width: 14, height: 14, borderRadius: 4, flexShrink: 0,
+          background: fondo,
+          border: tiene ? '1px solid rgba(0,0,0,0.2)' : '1px dashed var(--text-faint)',
+          cursor: isAdmin ? 'pointer' : 'default',
+          backgroundImage: tiene ? 'none' : 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.08) 3px, rgba(0,0,0,0.08) 6px)',
+        }}
+      />
+      {open && isAdmin && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="print-hide"
+          style={{
+            position: 'absolute', top: 20, left: 0, zIndex: 50,
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 8, padding: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
+            width: 200,
+          }}
+        >
+          <div style={{ fontSize: 11, color: 'var(--text-soft)', marginBottom: 8, fontWeight: 500 }}>
+            Color de <strong>{color}</strong>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+            <input
+              type="color"
+              value={val}
+              onChange={e => setVal(e.target.value)}
+              style={{ width: 40, height: 36, padding: 0, border: '1px solid var(--border)', borderRadius: 4, cursor: 'pointer', background: 'none' }}
+            />
+            <input
+              value={val}
+              onChange={e => setVal(e.target.value)}
+              placeholder="#RRGGBB"
+              className="input"
+              style={{ flex: 1, fontSize: 13, fontFamily: 'monospace', textTransform: 'uppercase' }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="btn" onClick={() => setOpen(false)} disabled={saving} style={{ flex: 1, justifyContent: 'center', padding: '5px 8px', fontSize: 12 }}>
+              Cancelar
+            </button>
+            <button className="btn btn-primary" onClick={guardar} disabled={saving} style={{ flex: 1, justifyContent: 'center', padding: '5px 8px', fontSize: 12 }}>
+              {saving ? '…' : 'Guardar'}
+            </button>
+          </div>
+        </div>
+      )}
+    </span>
+  );
+}
+
 // ===== CHECKLIST DE AUDITORÍA =====
 function ChecklistAuditoria({ lotes }: { lotes: LoteStock[] }) {
   const [checks, setChecks] = useState<Record<string, boolean>>({});
@@ -411,6 +498,21 @@ export default function StockPage() {
     }
   }
 
+  async function handleSetColor(color: string, hex: string) {
+    const user = auth.getUser();
+    if (!user) return;
+    await api.setColor(color, hex, user.usuario);
+    // Refleja el nuevo hex en todos los lotes de ese color, sin recargar
+    setLotes(prev => prev.map(l =>
+      (l.COLOR || '').toUpperCase().trim() === color.toUpperCase().trim()
+        ? { ...l, COLOR_HEX: hex } : l
+    ));
+    setEnCamino(prev => prev.map(l =>
+      (l.COLOR || '').toUpperCase().trim() === color.toUpperCase().trim()
+        ? { ...l, COLOR_HEX: hex } : l
+    ));
+  }
+  
   const couriersActivos = couriers.filter(c => {
     const a = String(c.ACTIVA).toUpperCase().trim();
     return a !== 'FALSE' && a !== 'NO' && a !== '0';
@@ -904,8 +1006,9 @@ export default function StockPage() {
                           </span>
                         </div>
                         <div className="display" style={{ fontSize: 15, marginBottom: 3 }}>{l.NOMBRE_PRODUCTO}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-soft)', marginBottom: 12 }}>
-                          <span className="mono">{l.TALLA}</span> · {l.LONGITUD} · {l.COLOR}
+                        <div style={{ fontSize: 12, color: 'var(--text-soft)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <ColorSwatch color={l.COLOR} hex={l.COLOR_HEX || ''} isAdmin={isAdmin} onSave={handleSetColor} />
+                          <span><span className="mono">{l.TALLA}</span> · {l.LONGITUD} · {l.COLOR}</span>
                         </div>
                         <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--text-faint)' }}>
                           <span>{fmtDate(l.FECHA_ENTRADA)}</span>
@@ -942,9 +1045,9 @@ export default function StockPage() {
                             🚚 {l.ESTADO_VIAJE}
                           </div>
                           <div className="display" style={{ fontSize: 15, marginBottom: 3 }}>{l.NOMBRE_PRODUCTO}</div>
-                          <div style={{ fontSize: 12, color: 'var(--text-soft)', marginBottom: 4 }}>
-                            <span className="mono">{l.TALLA}</span> · {l.LONGITUD} · {l.COLOR}
-                            {l.CANT_DISPONIBLE > 1 ? ` · ×${l.CANT_DISPONIBLE}` : ''}
+                          <div style={{ fontSize: 12, color: 'var(--text-soft)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <ColorSwatch color={l.COLOR} hex={(l as any).COLOR_HEX || ''} isAdmin={isAdmin} onSave={handleSetColor} />
+                            <span><span className="mono">{l.TALLA}</span> · {l.LONGITUD} · {l.COLOR}{l.CANT_DISPONIBLE > 1 ? ` · ×${l.CANT_DISPONIBLE}` : ''}</span>
                           </div>
                           <div style={{ fontSize: 12, marginBottom: 10 }}>
                             {eta ? (
