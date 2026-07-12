@@ -893,6 +893,9 @@ export default function StockPage() {
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12, marginBottom: 28 }}>
                       {combos.map(c => {
                         const eta = fmtEta(c.eta);
+                        const hexSup = c.superior.COLOR_HEX || '';
+                        const hexInf = c.inferior.COLOR_HEX || '';
+                        const mismoColor = (c.superior.COLOR || '').toUpperCase().trim() === (c.inferior.COLOR || '').toUpperCase().trim();
                         return (
                           <div key={c.COMBO_ID} className="card" style={{ padding: 16, position: 'relative', borderColor: c.enCamino ? 'var(--amber)' : undefined }}>
                             <button
@@ -905,21 +908,35 @@ export default function StockPage() {
                               {deletingCombo === c.COMBO_ID ? '…' : '✕'}
                             </button>
 
-                            {c.enCamino ? (
-                              <div style={{ fontSize: 10, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
-                                🚚 En camino{eta ? ` · llega ${eta}` : ''}
-                              </div>
-                            ) : (
-                              <div style={{ fontSize: 10, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <span style={{ display: 'inline-flex', gap: 3 }}>
-                                  <span style={{ width: 10, height: 10, borderRadius: 3, background: c.superior.COLOR_HEX || '#DDD', border: '1px solid rgba(0,0,0,0.15)' }} />
-                                  {c.superior.COLOR !== c.inferior.COLOR && (
-                                    <span style={{ width: 10, height: 10, borderRadius: 3, background: c.inferior.COLOR_HEX || '#DDD', border: '1px solid rgba(0,0,0,0.15)' }} />
-                                  )}
-                                </span>
-                                Conjunto · listo
-                              </div>
-                            )}
+                            {/* Cabecera con los colores del conjunto */}
+                            <div style={{
+                              fontSize: 10,
+                              color: c.enCamino ? 'var(--amber)' : 'var(--gold)',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.08em',
+                              marginBottom: 10,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 6,
+                            }}>
+                              <span style={{ display: 'inline-flex', gap: 3, flexShrink: 0 }}>
+                                <span style={{
+                                  width: 12, height: 12, borderRadius: 3, display: 'inline-block',
+                                  background: hexSup || '#DDDDD8',
+                                  border: '1px solid rgba(0,0,0,0.2)',
+                                }} />
+                                {!mismoColor && (
+                                  <span style={{
+                                    width: 12, height: 12, borderRadius: 3, display: 'inline-block',
+                                    background: hexInf || '#DDDDD8',
+                                    border: '1px solid rgba(0,0,0,0.2)',
+                                  }} />
+                                )}
+                              </span>
+                              <span>
+                                {c.enCamino ? `🚚 En camino${eta ? ` · llega ${eta}` : ''}` : 'Conjunto · listo'}
+                              </span>
+                            </div>
 
                             {[c.superior, c.inferior].map((p, i) => {
                               const estado = (p.ESTADO_VIAJE || '').toUpperCase();
