@@ -910,7 +910,13 @@ export default function StockPage() {
                                 🚚 En camino{eta ? ` · llega ${eta}` : ''}
                               </div>
                             ) : (
-                              <div style={{ fontSize: 10, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                              <div style={{ fontSize: 10, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ display: 'inline-flex', gap: 3 }}>
+                                  <span style={{ width: 10, height: 10, borderRadius: 3, background: c.superior.COLOR_HEX || '#DDD', border: '1px solid rgba(0,0,0,0.15)' }} />
+                                  {c.superior.COLOR !== c.inferior.COLOR && (
+                                    <span style={{ width: 10, height: 10, borderRadius: 3, background: c.inferior.COLOR_HEX || '#DDD', border: '1px solid rgba(0,0,0,0.15)' }} />
+                                  )}
+                                </span>
                                 Conjunto · listo
                               </div>
                             )}
@@ -922,7 +928,10 @@ export default function StockPage() {
                                 <div key={p.LOTE_ID} style={{ marginBottom: i === 0 ? 8 : 0 }}>
                                   {i === 1 && <div style={{ fontSize: 13, color: c.enCamino ? 'var(--amber)' : 'var(--gold)', margin: '2px 0' }}>+</div>}
                                   <div className="display" style={{ fontSize: 14 }}>{p.NOMBRE_PRODUCTO} {p.enCamino ? '🚚' : ''}</div>
-                                  <div style={{ fontSize: 11, color: 'var(--text-soft)' }}>{p.TALLA} · {p.LONGITUD} · {p.COLOR}</div>
+                                  <div style={{ fontSize: 11, color: 'var(--text-soft)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                                    <ColorSwatch color={p.COLOR} hex={p.COLOR_HEX || ''} isAdmin={isAdmin} onSave={handleSetColor} />
+                                    <span>{p.TALLA} · {p.LONGITUD} · {p.COLOR}</span>
+                                  </div>
 
                                   {p.enCamino && (
                                     <div style={{ marginTop: 6 }}>
