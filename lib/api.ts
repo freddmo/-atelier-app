@@ -279,6 +279,7 @@ export type ComboPieza = {
   TALLA: string;
   LONGITUD: string;
   COLOR: string;
+  COLOR_HEX?: string;              // ← NUEVO
   enCamino: boolean;
   ESTADO_VIAJE: string;
   eta: { fechaMin: string; fechaMax: string } | null;
