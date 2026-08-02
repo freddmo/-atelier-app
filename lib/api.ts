@@ -606,38 +606,7 @@ export const api = {
       usuario,
     });
   },
-  // ============================================================
-// FUNCIONES NUEVAS PARA lib/api.ts — MODULO FINANZAS
-// ============================================================
-// Pegar estas funciones DENTRO del objeto `api` (donde estan
-// getReporteGanancia, setPrioridad, etc.), respetando las comas.
-// Siguen tu mismo patron: apiCall<T> + params + tipado inline.
-// ============================================================
-
-
-  // --- Resumen mensual: repartible entre socios + capital ScrubMe ---
-  async getResumenMensual(mes: string, donacion?: number) {
-    const params: Record<string, string> = { action: 'getResumenMensual', mes };
-    if (donacion != null) params.donacion = String(donacion);
-    return apiCall<{
-      mes: string;
-      repartible: {
-        gananciaPedidosPagados: number;
-        gastosFijos: number;
-        donacion: number;
-        neto: number;
-        porSocio: number;
-        cantidadPedidos: number;
-      };
-      scrubme: { gananciaStock: number };
-      proyeccion: { gananciaTotalMes: number; brecha: number };
-      detalleRepartible: {
-        ORDEN_ID: string; NOMBRE: string; F_ORDEN: string;
-        TIPO: string; venta: number; costo: number; ganancia: number;
-      }[];
-    }>(params);
-  },
-
+  
   // --- Capital real: liquido + stock + pedidos activos - deuda ---
   async getCapitalReal() {
     return apiCall<{
