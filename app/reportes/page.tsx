@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { auth } from '@/lib/auth';
 import Navbar from '@/components/Navbar';
+import CostosPieChart from '@/components/CostosPieChart';
 
 function fmtMoney(n: number) {
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -121,7 +122,12 @@ export default function ReportesPage() {
             </div>
           </div>
         )}
-
+        
+        {/* Pie de costos */}
+        <div style={{ marginBottom: 24 }}>
+          <CostosPieChart fechaInicio={fechaInicio} fechaFin={fechaFin} />
+        </div>
+        
         <div className="card" style={{ padding: 24, marginBottom: 24 }}>
           <div style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 14 }}>Período de análisis</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, alignItems: 'end' }}>
