@@ -726,4 +726,35 @@ export const api = {
       id: string; fecha: string; concepto: string; categoria: string; monto: number; nota: string;
     }>(params);
   },
+  async getResumenMensual(
+    mes: string,
+    donacion?: number,
+    fechaDesde?: string,
+    fechaHasta?: string
+  ) {
+    const params: Record<string, string> = { action: 'getResumenMensual' };
+    if (mes) params.mes = mes;
+    if (donacion != null) params.donacion = String(donacion);
+    if (fechaDesde) params.fechaDesde = fechaDesde;
+    if (fechaHasta) params.fechaHasta = fechaHasta;
+    return apiCall<{
+      periodo: string;
+      desde: string;
+      hasta: string;
+      repartible: {
+        gananciaPedidosPagados: number;
+        gastosFijos: number;
+        donacion: number;
+        neto: number;
+        porSocio: number;
+        cantidadPedidos: number;
+      };
+      scrubme: { gananciaStock: number };
+      proyeccion: { gananciaTotalMes: number; brecha: number };
+      detalleRepartible: {
+        ORDEN_ID: string; NOMBRE: string; FECHA_COBRO: string;
+        TIPO: string; venta: number; costo: number; ganancia: number;
+      }[];
+    }>(params);
+  },
 };
