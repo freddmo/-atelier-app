@@ -1,6 +1,5 @@
 // app/finanzas/page.tsx
-// Dashboard financiero: reparto, capital, y las gráficas en una vista.
-// Copia este archivo a: app/finanzas/page.tsx
+// Dashboard financiero: reparto por corte (15 a 15), capital, y gráficas.
 
 'use client';
 
@@ -13,23 +12,31 @@ import CapitalCard from '@/components/CapitalCard';
 import CostosPieChart from '@/components/CostosPieChart';
 import VentasTimelineChart from '@/components/VentasTimelineChart';
 
-// mes actual en formato YYYY-MM
-function mesActual() {
-  const t = new Date();
-  return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`;
-}
-
-// primer y último día de un mes YYYY-MM
-function rangoDelMes(mes: string) {
-  const [y, m] = mes.split('-').map(Number);
-  const inicio = `${mes}-01`;
-  const fin = new Date(y, m, 0).toISOString().split('T')[0]; // último día
-  return { inicio, fin };
+// Devuelve el corte actual: del 15 del mes pasado al 15 de este mes.
+// Si hoy es antes del 15, el corte va del 15 de hace 2 meses al 15 del mes pasado.
+function corteActual() {
+  const hoy = new Date();
+  const dia = hoy.getDate();
+  // El corte "vigente" termina el próximo día 15.
+  // Fin = el 15 de este mes (si aún no llega) o del próximo.
+  let finMes = hoy.getMonth();
+  let finAnio = hoy.getFullYear();
+  if (dia > 15) {
+    // ya pasó el 15 de este mes: el corte en curso termina el 15 del mes que viene
+    finMes += 1;
+    if (finMes > 11) { finMes = 0; finAnio += 1; }
+  }
+  const fin = new Date(finAnio, finMes, 15);
+  const inicio = new Date(finAnio, finMes - 1, 15);
+  const fmt = (d: Date) => d.toISOString().split('T')[0];
+  return { desde: fmt(inicio), hasta: fmt(fin) };
 }
 
 export default function FinanzasPage() {
   const router = useRouter();
-  const [mes, setMes] = useState(mesActual());
+  const corte = corteActual();
+  const [desde, setDesde] = useState(corte.desde);
+  const [hasta, setHasta] = useState(corte.hasta);
   const [donacion, setDonacion] = useState(0);
 
   useEffect(() => {
@@ -39,14 +46,14 @@ export default function FinanzasPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
-  const { inicio, fin } = rangoDelMes(mes);
-
-  // opciones de mes: últimos 6
-  const meses: string[] = [];
-  const hoy = new Date();
-  for (let i = 0; i < 6; i++) {
-    const d = new Date(hoy.getFullYear(), hoy.getMonth() - i, 1);
-    meses.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  // Botón: saltar el corte un mes atrás/adelante
+  function moverCorte(dir: -1 | 1) {
+    const d = new Date(desde + 'T12:00:00');
+    const h = new Date(hasta + 'T12:00:00');
+    d.setMonth(d.getMonth() + dir);
+    h.setMonth(h.getMonth() + dir);
+    setDesde(d.toISOString().split('T')[0]);
+    setHasta(h.toISOString().split('T')[0]);
   }
 
   return (
@@ -60,30 +67,34 @@ export default function FinanzasPage() {
           Dashboard
         </h1>
 
-        {/* Selector de mes + donación */}
-        <div className="card" style={{ padding: 20, marginBottom: 24, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'end' }}>
-          <div>
-            <label style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Mes</label>
-            <select className="input" value={mes} onChange={(e) => setMes(e.target.value)} style={{ marginTop: 4, width: '100%' }}>
-              {meses.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
+        {/* Selector de corte (rango) + donación */}
+        <div className="card" style={{ padding: 20, marginBottom: 24 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 12 }}>
+            Corte de pago (por fecha de cobro)
           </div>
-          <div>
-            <label style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Donación a ScrubMe este mes</label>
-            <input
-              type="number"
-              className="input"
-              value={donacion}
-              onChange={(e) => setDonacion(Number(e.target.value) || 0)}
-              style={{ marginTop: 4, width: '100%' }}
-              placeholder="0"
-            />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: 12, alignItems: 'end' }}>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--text-soft)' }}>Desde</label>
+              <input type="date" className="input" value={desde} onChange={(e) => setDesde(e.target.value)} style={{ marginTop: 4, width: '100%' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--text-soft)' }}>Hasta</label>
+              <input type="date" className="input" value={hasta} onChange={(e) => setHasta(e.target.value)} style={{ marginTop: 4, width: '100%' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: 'var(--text-soft)' }}>Donación a ScrubMe</label>
+              <input type="number" className="input" value={donacion} onChange={(e) => setDonacion(Number(e.target.value) || 0)} style={{ marginTop: 4, width: '100%' }} placeholder="0" />
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button className="btn" style={{ padding: '8px 12px', fontSize: 12 }} onClick={() => moverCorte(-1)}>← Corte anterior</button>
+              <button className="btn" style={{ padding: '8px 12px', fontSize: 12 }} onClick={() => moverCorte(1)}>Siguiente →</button>
+            </div>
           </div>
         </div>
 
-        {/* Fila 1: Reparto + Capital lado a lado */}
+        {/* Fila 1: Reparto + Capital */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16, marginBottom: 24 }}>
-          <ResumenMensualCard mes={mes} donacion={donacion} />
+          <ResumenMensualCard fechaDesde={desde} fechaHasta={hasta} donacion={donacion} />
           <CapitalCard />
         </div>
 
@@ -92,9 +103,9 @@ export default function FinanzasPage() {
           <VentasTimelineChart meses={6} />
         </div>
 
-        {/* Fila 3: Pie de costos del mes */}
+        {/* Fila 3: Pie de costos del corte */}
         <div style={{ marginBottom: 24 }}>
-          <CostosPieChart fechaInicio={inicio} fechaFin={fin} />
+          <CostosPieChart fechaInicio={desde} fechaFin={hasta} />
         </div>
       </div>
     </>
