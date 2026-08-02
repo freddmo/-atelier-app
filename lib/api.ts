@@ -606,4 +606,124 @@ export const api = {
       usuario,
     });
   },
+  // ============================================================
+// FUNCIONES NUEVAS PARA lib/api.ts — MODULO FINANZAS
+// ============================================================
+// Pegar estas funciones DENTRO del objeto `api` (donde estan
+// getReporteGanancia, setPrioridad, etc.), respetando las comas.
+// Siguen tu mismo patron: apiCall<T> + params + tipado inline.
+// ============================================================
+
+
+  // --- Resumen mensual: repartible entre socios + capital ScrubMe ---
+  async getResumenMensual(mes: string, donacion?: number) {
+    const params: Record<string, string> = { action: 'getResumenMensual', mes };
+    if (donacion != null) params.donacion = String(donacion);
+    return apiCall<{
+      mes: string;
+      repartible: {
+        gananciaPedidosPagados: number;
+        gastosFijos: number;
+        donacion: number;
+        neto: number;
+        porSocio: number;
+        cantidadPedidos: number;
+      };
+      scrubme: { gananciaStock: number };
+      proyeccion: { gananciaTotalMes: number; brecha: number };
+      detalleRepartible: {
+        ORDEN_ID: string; NOMBRE: string; F_ORDEN: string;
+        TIPO: string; venta: number; costo: number; ganancia: number;
+      }[];
+    }>(params);
+  },
+
+  // --- Capital real: liquido + stock + pedidos activos - deuda ---
+  async getCapitalReal() {
+    return apiCall<{
+      fechaFoto: string;
+      liquido: number;
+      stock: number;
+      pedidosActivos: number;
+      invertido: number;
+      deuda: number;
+      capitalReal: number;
+      cuentas: { cuenta: string; tipo: string; monto: number }[];
+    }>({ action: 'getCapitalReal' });
+  },
+
+  // --- PIE CHART: costos por tipo (a donde va el dinero) ---
+  async getCostosPorTipo(fechaInicio?: string, fechaFin?: string) {
+    const params: Record<string, string> = { action: 'getCostosPorTipo' };
+    if (fechaInicio) params.fechaInicio = fechaInicio;
+    if (fechaFin) params.fechaFin = fechaFin;
+    return apiCall<{
+      desde: string;
+      hasta: string;
+      total: number;
+      porTipo: { tipo: string; monto: number }[];
+    }>(params);
+  },
+
+  // --- TIMELINE: venta/ganancia mes a mes ---
+  async getTimelineMensual(meses?: number) {
+    const params: Record<string, string> = { action: 'getTimelineMensual' };
+    if (meses != null) params.meses = String(meses);
+    return apiCall<{
+      meses: number;
+      timeline: {
+        mes: string;
+        ventaPedido: number;
+        gananciaPedido: number;
+        ventaStock: number;
+        gananciaStock: number;
+        gastosFijos: number;
+        gananciaNeta: number;
+      }[];
+    }>(params);
+  },
+
+  // --- HISTOGRAMA: distribucion de ganancia por pedido ---
+  async getHistogramaGanancia(fechaInicio?: string, fechaFin?: string) {
+    const params: Record<string, string> = { action: 'getHistogramaGanancia' };
+    if (fechaInicio) params.fechaInicio = fechaInicio;
+    if (fechaFin) params.fechaFin = fechaFin;
+    return apiCall<{
+      desde: string;
+      hasta: string;
+      totalPedidos: number;
+      buckets: { label: string; min: number; max: number; count: number }[];
+    }>(params);
+  },
+
+  // --- Gastos fijos de un mes ---
+  async getGastosFijos(mes?: string) {
+    const params: Record<string, string> = { action: 'getGastosFijos' };
+    if (mes) params.mes = mes;
+    return apiCall<{
+      mes: string;
+      gastos: { id: string; fecha: string; concepto: string; categoria: string; monto: number; nota: string }[];
+      porCategoria: Record<string, number>;
+      total: number;
+      cantidad: number;
+    }>(params);
+  },
+
+  // --- Agregar un gasto fijo (Sebas, Shopify, etc.) ---
+  async agregarGastoFijo(g: {
+    usuario: string; concepto: string; categoria: string; monto: number; fecha?: string; nota?: string;
+  }) {
+    const params: Record<string, string> = {
+      action: 'agregarGastoFijo',
+      usuario: g.usuario,
+      concepto: g.concepto,
+      categoria: g.categoria,
+      monto: String(g.monto),
+    };
+    if (g.fecha) params.fecha = g.fecha;
+    if (g.nota) params.nota = g.nota;
+    return apiCall<{
+      id: string; fecha: string; concepto: string; categoria: string; monto: number; nota: string;
+    }>(params);
+  },
 };
