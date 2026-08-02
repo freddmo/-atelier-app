@@ -1,10 +1,10 @@
 // components/CostosPieChart.tsx
 // Pie chart: "¿A dónde va el dinero?" — desglose de costos por tipo.
-// Recharts 3.x + Tailwind v4. Consume api.getCostosPorTipo().
+// Usa Recharts 3.x + TUS variables de color/clases (card, tabular, var(--...)).
 //
 // USO en app/reportes/page.tsx:
 //   import CostosPieChart from '@/components/CostosPieChart';
-//   <CostosPieChart fechaInicio="2026-07-01" fechaFin="2026-07-31" />
+//   <CostosPieChart fechaInicio={fechaInicio} fechaFin={fechaFin} />
 
 'use client';
 
@@ -14,13 +14,14 @@ import { api } from '@/lib/api';
 
 type CostoTipo = { tipo: string; monto: number };
 
+// Mapeo a tus variables de color (definidas en globals.css)
 const COLORES: Record<string, string> = {
-  BRUTO: '#2563eb',
-  COURIER: '#f59e0b',
-  DELIVERY: '#10b981',
-  EMPAQUE: '#8b5cf6',
-  REGALO: '#ec4899',
-  OTRO: '#94a3b8',
+  BRUTO: 'var(--blue)',
+  COURIER: 'var(--amber)',
+  DELIVERY: 'var(--green)',
+  EMPAQUE: 'var(--gold)',
+  REGALO: 'var(--rose)',
+  OTRO: 'var(--text-faint)',
 };
 
 const NOMBRE: Record<string, string> = {
@@ -33,7 +34,39 @@ const NOMBRE: Record<string, string> = {
 };
 
 const money = (n: number) =>
-  `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Tooltip propio: evita los conflictos de tipos del formatter de Recharts 3.
+function CostoTooltip({
+  active,
+  payload,
+  total,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: CostoTipo }>;
+  total: number;
+}) {
+  if (!active || !payload || !payload.length) return null;
+  const d = payload[0]?.payload;
+  if (!d) return null;
+  const pct = total > 0 ? ((d.monto / total) * 100).toFixed(1) : '0';
+  return (
+    <div
+      style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 6,
+        padding: '8px 12px',
+        fontSize: 13,
+        color: 'var(--text)',
+      }}
+    >
+      <strong>{NOMBRE[d.tipo] || d.tipo}</strong>
+      <br />
+      {money(d.monto)} · {pct}%
+    </div>
+  );
+}
 
 export default function CostosPieChart({
   fechaInicio,
@@ -65,31 +98,47 @@ export default function CostosPieChart({
     };
   }, [fechaInicio, fechaFin]);
 
+  const cajaBase: React.CSSProperties = { padding: 24 };
+
   if (cargando)
     return (
-      <div className="max-w-lg rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-500">
+      <div className="card" style={{ ...cajaBase, color: 'var(--text-faint)', fontSize: 14 }}>
         Cargando costos…
       </div>
     );
   if (error)
     return (
-      <div className="max-w-lg rounded-xl border border-gray-200 bg-white p-5 text-sm text-red-600">
+      <div className="card" style={{ ...cajaBase, color: 'var(--rose)', fontSize: 14 }}>
         Error: {error}
       </div>
     );
   if (!data.length)
     return (
-      <div className="max-w-lg rounded-xl border border-gray-200 bg-white p-5 text-sm text-gray-500">
+      <div className="card" style={{ ...cajaBase, color: 'var(--text-faint)', fontSize: 14 }}>
         No hay costos en este período.
       </div>
     );
 
   return (
-    <div className="max-w-lg rounded-xl border border-gray-200 bg-white p-5">
-      <div className="mb-3 flex items-baseline justify-between">
-        <h3 className="m-0 text-base font-semibold text-gray-900">¿A dónde va el dinero?</h3>
-        <span className="text-sm font-medium text-gray-500">Total: {money(total)}</span>
+    <div className="card" style={cajaBase}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+        <div
+          style={{
+            fontSize: 11,
+            color: 'var(--text-soft)',
+            letterSpacing: '0.1em',
+            textTransform: 'uppercase',
+          }}
+        >
+          ¿A dónde va el dinero?
+        </div>
+        <span className="tabular" style={{ fontSize: 13, color: 'var(--text-soft)' }}>
+          Total: {money(total)}
+        </span>
       </div>
+      <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '0 0 14px' }}>
+        Desglose de todos los costos del período por tipo.
+      </p>
 
       <ResponsiveContainer width="100%" height={280}>
         <PieChart>
@@ -102,38 +151,49 @@ export default function CostosPieChart({
             outerRadius={95}
             innerRadius={45}
             paddingAngle={2}
-            label={({ percent }: { percent?: number }) =>
-              percent && percent > 0.05 ? `${(percent * 100).toFixed(0)}%` : ''
-            }
+            stroke="var(--surface)"
+            label={((props: { percent?: number }) =>
+              props.percent && props.percent > 0.05
+                ? `${(props.percent * 100).toFixed(0)}%`
+                : '') as never}
           >
             {data.map((d) => (
               <Cell key={d.tipo} fill={COLORES[d.tipo] || COLORES.OTRO} />
             ))}
           </Pie>
-          <Tooltip
-            formatter={(value: number, _n: string, props: { payload?: CostoTipo }) => {
-              const tipo = props?.payload?.tipo || '';
-              const pct = total > 0 ? ((value / total) * 100).toFixed(1) : '0';
-              return [`${money(value)} (${pct}%)`, NOMBRE[tipo] || tipo];
-            }}
-          />
-          <Legend formatter={(value: string) => NOMBRE[value] || value} iconType="circle" />
+          <Tooltip content={<CostoTooltip total={total} />} />
+          <Legend formatter={(value) => NOMBRE[String(value)] || String(value)} iconType="circle" />
         </PieChart>
       </ResponsiveContainer>
 
-      <div className="mt-3 border-t border-gray-100 pt-3">
+      <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
         {data.map((d) => {
           const pct = total > 0 ? ((d.monto / total) * 100).toFixed(1) : '0';
           return (
-            <div key={d.tipo} className="flex items-center justify-between py-1 text-sm">
-              <span className="flex items-center text-gray-700">
+            <div
+              key={d.tipo}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '4px 0',
+                fontSize: 13,
+              }}
+            >
+              <span style={{ display: 'flex', alignItems: 'center', color: 'var(--text)' }}>
                 <span
-                  className="mr-2 inline-block h-2.5 w-2.5 rounded-full"
-                  style={{ background: COLORES[d.tipo] || COLORES.OTRO }}
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    display: 'inline-block',
+                    marginRight: 8,
+                    background: COLORES[d.tipo] || COLORES.OTRO,
+                  }}
                 />
                 {NOMBRE[d.tipo] || d.tipo}
               </span>
-              <span className="font-medium tabular-nums text-gray-900">
+              <span className="tabular" style={{ color: 'var(--text)', fontWeight: 500 }}>
                 {money(d.monto)} · {pct}%
               </span>
             </div>
