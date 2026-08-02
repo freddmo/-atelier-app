@@ -61,6 +61,9 @@ export default function Navbar() {
               <button className={`nav-link ${isActive('/reportes') ? 'active' : ''}`} onClick={() => router.push('/reportes')}>Reportes</button>
             )}
             {isAdmin && (
+              <button className={`nav-link ${isActive('/finanzas') ? 'active' : ''}`} onClick={() => router.push('/finanzas')}>Finanzas</button>
+            )}
+            {isAdmin && (
               <div ref={costosRef} style={{ position: 'relative' }}>
                 <button
                   className={`nav-link ${isCostosActive ? 'active' : ''}`}
@@ -139,6 +142,9 @@ export default function Navbar() {
             )}
             {isAdmin && (
               <button className={`nav-link ${isActive('/reportes') ? 'active' : ''}`} onClick={() => { router.push('/reportes'); setMobileOpen(false); }}>Reportes</button>
+            )}
+            {isAdmin && (
+              <button className={`nav-link ${isActive('/finanzas') ? 'active' : ''}`} onClick={() => { router.push('/finanzas'); setMobileOpen(false); }}>Finanzas</button>
             )}
             {isAdmin && (
               <button className={`nav-link ${isActive('/cargar-factura') ? 'active' : ''}`} onClick={() => { router.push('/cargar-factura'); setMobileOpen(false); }}>📄 Cargar factura FIGS</button>
