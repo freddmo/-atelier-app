@@ -208,19 +208,20 @@ export default function PedidoDetallePage() {
   function generarMensajeWhatsApp() {
     if (!pedido) return;
     const saldo = pedido.totales.saldo;
-
-    let mensaje = `💕 *Tu Figs te esta esperando* 💕\n\n`;
-    mensaje += `📦 Tu pedido ya esta listo para ser enviado/entregado.\n`;
-
+    let mensaje = `💕 *¡Tu FIGS te está esperando!* 💕\n\n`;
+    mensaje += `🚚 Nuestros envíos (delivery o Servientrega) se realizan en los siguientes horarios:\n`;
+    mensaje += `🗓️ *Martes y Jueves*\n`;
+    mensaje += `🕦 11:30 a. m. – 3:30 p. m.\n`;
+    mensaje += `🗓️ *Viernes*\n`;
+    mensaje += `🕥 10:30 a. m. – 4:00 p. m.\n\n`;
+    mensaje += `📦 ¡Tu pedido ya está listo para ser entregado!\n`;
     if (saldo > 0.005) {
       mensaje += `\n💰 Saldo pendiente: *$${saldo.toFixed(2)}*\n`;
     }
-
-    mensaje += `\nRecuerda que nuestros números de cuenta son:\n\n`;
-    mensaje += `💛 Bco Pichincha #2215262086 (Mildred Zamora)\n`;
-    mensaje += `🩷 Bco Guayaquil #0050468351 (Freddy Moreno)\n`;
-    mensaje += `💳 Si deseas pago con tarjeta avísanos para enviarte el link de pago con Payphone`;
-
+    mensaje += `\n💳 Puedes realizar tu pago a cualquiera de estas cuentas:\n\n`;
+    mensaje += `💛 Banco Pichincha #2215262086 (Mildred Zamora)\n`;
+    mensaje += `🩷 Banco Guayaquil #0050468351 (Freddy Moreno)\n`;
+    mensaje += `💳 Si deseas pagar con tarjeta, avísanos y te enviaremos el link de pago por PayPhone.`;
     navigator.clipboard.writeText(mensaje);
     setToast('Mensaje copiado al portapapeles 📋');
     setTimeout(() => setToast(''), 3000);
