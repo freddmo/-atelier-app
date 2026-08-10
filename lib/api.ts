@@ -642,6 +642,11 @@ export const api = {
       meses: number;
       timeline: {
         mes: string;
+        completo: boolean;
+        diasTranscurridos?: number;
+        diasDelMes?: number;
+        ventaReal?: number;
+        gananciaReal?: number;
         ventaPedido: number;
         gananciaPedido: number;
         ventaStock: number;
