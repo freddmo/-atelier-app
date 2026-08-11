@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Pedido } from '@/lib/types';
 
@@ -44,6 +45,39 @@ function fmtMoney(n: number) {
 function fmtDateShort(d: string) {
   if (!d) return '';
   return new Date(d + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+}
+
+function generarMensajeCobro(pedido: Pedido): string {
+  const nombre = pedido.CLIENTE_NOMBRE || pedido.NOMBRE || '';
+  const saldo = pedido.totales.saldo;
+  let mensaje = `💕 ¡Hola ${nombre}! 💕\n\n`;
+  mensaje += `Te escribimos para recordarte el saldo pendiente de tu pedido:\n`;
+  mensaje += `💰 Saldo pendiente: *$${saldo.toFixed(2)}*\n\n`;
+  mensaje += `💳 Puedes realizar tu pago a cualquiera de estas cuentas:\n\n`;
+  mensaje += `💛 Banco Pichincha #2215262086 (Mildred Zamora)\n`;
+  mensaje += `🩷 Banco Guayaquil #0050468351 (Freddy Moreno)\n`;
+  mensaje += `💳 Si deseas pagar con tarjeta, avísanos y te enviaremos el link de pago por PayPhone.`;
+  return mensaje;
+}
+
+// Mismo mensaje que en el detalle del pedido — horarios de envío + saldo si aplica.
+function generarMensajeListoParaEnviar(pedido: Pedido): string {
+  const saldo = pedido.totales.saldo;
+  let mensaje = `💕 *¡Tu FIGS te está esperando!* 💕\n\n`;
+  mensaje += `🚚 Nuestros envíos (delivery o Servientrega) se realizan en los siguientes horarios:\n`;
+  mensaje += `🗓️ *Martes y Jueves*\n`;
+  mensaje += `🕦 11:30 a. m. – 3:30 p. m.\n`;
+  mensaje += `🗓️ *Viernes*\n`;
+  mensaje += `🕥 10:30 a. m. – 4:00 p. m.\n\n`;
+  mensaje += `📦 ¡Tu pedido ya está listo para ser entregado!\n`;
+  if (saldo > 0.005) {
+    mensaje += `\n💰 Saldo pendiente: *$${saldo.toFixed(2)}*\n`;
+  }
+  mensaje += `\n💳 Puedes realizar tu pago a cualquiera de estas cuentas:\n\n`;
+  mensaje += `💛 Banco Pichincha #2215262086 (Mildred Zamora)\n`;
+  mensaje += `🩷 Banco Guayaquil #0050468351 (Freddy Moreno)\n`;
+  mensaje += `💳 Si deseas pagar con tarjeta, avísanos y te enviaremos el link de pago por PayPhone.`;
+  return mensaje;
 }
 
 function diasAtraso(pedido: Pedido): number | null {
@@ -143,15 +177,29 @@ function CardExtra({ pedido }: { pedido: Pedido }) {
 
 export default function OrderCard({ pedido, showMoney = false }: Props) {
   const router = useRouter();
+  const [copiado, setCopiado] = useState<'cobro' | 'listo' | null>(null);
   const atraso = diasAtraso(pedido);
   const saldo = pedido.totales.saldo;
   const hasRegalo = !!pedido.REGALO_ENVIADO && String(pedido.REGALO_ENVIADO).trim() !== '';
+  const listoParaEnviar = pedido.ESTATUS_ENVIO === 'LISTO PARA ENVIAR';
 
   function gestionar() {
     // Guardamos el pedido ya cargado para que el detalle abra al instante,
     // sin volver a pedirlo al backend.
     try { sessionStorage.setItem('pedido:' + pedido.ORDEN_ID, JSON.stringify(pedido)); } catch {}
     router.push(`/pedido/${encodeURIComponent(pedido.ORDEN_ID)}`);
+  }
+
+  function copiarCobro() {
+    navigator.clipboard.writeText(generarMensajeCobro(pedido));
+    setCopiado('cobro');
+    setTimeout(() => setCopiado(null), 2000);
+  }
+
+  function copiarListoParaEnviar() {
+    navigator.clipboard.writeText(generarMensajeListoParaEnviar(pedido));
+    setCopiado('listo');
+    setTimeout(() => setCopiado(null), 2000);
   }
 
   return (
@@ -189,9 +237,29 @@ export default function OrderCard({ pedido, showMoney = false }: Props) {
               : <div style={{ fontSize: 11, color: 'var(--green)', marginTop: 4 }}>Pagado</div>
             )}
           </div>
-          <button className="btn" onClick={gestionar} style={{ padding: '6px 14px', fontSize: 12, whiteSpace: 'nowrap' }}>
-            Gestionar
-          </button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn" onClick={gestionar} style={{ padding: '6px 14px', fontSize: 12, whiteSpace: 'nowrap' }}>
+              Gestionar
+            </button>
+            {listoParaEnviar && (
+              <button
+                className="btn"
+                onClick={copiarListoParaEnviar}
+                style={{ padding: '6px 14px', fontSize: 12, whiteSpace: 'nowrap', background: copiado === 'listo' ? '#25D366' : undefined, color: copiado === 'listo' ? 'white' : undefined, borderColor: copiado === 'listo' ? '#25D366' : undefined }}
+              >
+                {copiado === 'listo' ? '✓ Copiado' : '📦 Listo para enviar'}
+              </button>
+            )}
+            {showMoney && saldo > 0.005 && (
+              <button
+                className="btn"
+                onClick={copiarCobro}
+                style={{ padding: '6px 14px', fontSize: 12, whiteSpace: 'nowrap', background: copiado === 'cobro' ? '#25D366' : undefined, color: copiado === 'cobro' ? 'white' : undefined, borderColor: copiado === 'cobro' ? '#25D366' : undefined }}
+              >
+                {copiado === 'cobro' ? '✓ Copiado' : '💬 Copiar cobro'}
+              </button>
+            )}
+          </div>
         </div>
         <CardExtra pedido={pedido} />
       </div>
@@ -221,9 +289,29 @@ export default function OrderCard({ pedido, showMoney = false }: Props) {
           : <div style={{ fontSize: 11, color: 'var(--green)' }}>Pagado</div>
         )}
         <CardExtra pedido={pedido} />
-        <button className="btn" onClick={gestionar} style={{ width: '100%', justifyContent: 'center', fontSize: 12 }}>
-          Gestionar
-        </button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn" onClick={gestionar} style={{ flex: 1, justifyContent: 'center', fontSize: 12 }}>
+            Gestionar
+          </button>
+          {listoParaEnviar && (
+            <button
+              className="btn"
+              onClick={copiarListoParaEnviar}
+              style={{ flex: 1, justifyContent: 'center', fontSize: 12, background: copiado === 'listo' ? '#25D366' : undefined, color: copiado === 'listo' ? 'white' : undefined, borderColor: copiado === 'listo' ? '#25D366' : undefined }}
+            >
+              {copiado === 'listo' ? '✓ Copiado' : '📦 Envío'}
+            </button>
+          )}
+          {showMoney && saldo > 0.005 && (
+            <button
+              className="btn"
+              onClick={copiarCobro}
+              style={{ flex: 1, justifyContent: 'center', fontSize: 12, background: copiado === 'cobro' ? '#25D366' : undefined, color: copiado === 'cobro' ? 'white' : undefined, borderColor: copiado === 'cobro' ? '#25D366' : undefined }}
+            >
+              {copiado === 'cobro' ? '✓ Copiado' : '💬 Cobro'}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
