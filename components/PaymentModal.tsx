@@ -16,7 +16,7 @@ type Props = {
   ordenId: string;
   saldoActual: number;
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (pago: { ORDEN_ID: string; FECHA_PAGO: string; MONTO: number; METODO: string; URL_COMPROBANTE: string; NOTAS: string }) => void;
 };
 
 export default function PaymentModal({ ordenId, saldoActual, onClose, onSaved }: Props) {
@@ -66,7 +66,14 @@ export default function PaymentModal({ ordenId, saldoActual, onClose, onSaved }:
         urlComprobante: urlComprobante.trim(),
         notas: notas.trim(),
       }, user.usuario);
-      onSaved();
+      onSaved({
+        ORDEN_ID: ordenId,
+        FECHA_PAGO: fecha,
+        MONTO: montoFinal,
+        METODO: metodo,
+        URL_COMPROBANTE: urlComprobante.trim(),
+        NOTAS: notas.trim(),
+      });
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'desconocido'));
       setSubmitting(false);
