@@ -81,16 +81,20 @@ function ItemChip({ nombre, talla, longitud, color }: { nombre: string; talla?: 
   );
 }
 
+function str(v: unknown): string {
+  return v === null || v === undefined ? '' : String(v).trim();
+}
+
 // Bloque de info del cliente (dirección, teléfono, cédula/RUC, industria) + chips de TODOS los ítems
 function CardExtra({ pedido }: { pedido: Pedido }) {
   const items = (pedido.items || []).filter(
     it => String((it as any).ESTATUS_ITEM || '').toUpperCase().trim() !== 'CANCELADO'
   );
-  const dir = pedido.cliente?.DIRECCION?.trim();
-  const ciudad = pedido.cliente?.CIUDAD?.trim();
-  const telefono = pedido.cliente?.TELEFONO?.trim();
-  const cedulaRuc = pedido.cliente?.CEDULA_RUC?.trim();
-  const industria = pedido.cliente?.INDUSTRIA?.trim();
+  const dir = str(pedido.cliente?.DIRECCION);
+  const ciudad = str(pedido.cliente?.CIUDAD);
+  const telefono = str(pedido.cliente?.TELEFONO);
+  const cedulaRuc = str(pedido.cliente?.CEDULA_RUC);
+  const industria = str(pedido.cliente?.INDUSTRIA);
 
   const hayInfo = dir || telefono || cedulaRuc || industria || items.length > 0;
   if (!hayInfo) return null;
