@@ -95,19 +95,34 @@ export default function PedidoDetallePage() {
     }
     setIsAdmin(user.rol === 'admin');
     setIsBodega(user.rol === 'bodega');
-    loadPedido();
+
+    // Si venimos de la lista de pedidos, ya tenemos el pedido en memoria:
+    // lo pintamos de inmediato y refrescamos de fondo, sin esperar al backend.
+    let cache: Pedido | null = null;
+    try {
+      const raw = sessionStorage.getItem('pedido:' + ordenId);
+      if (raw) cache = JSON.parse(raw);
+    } catch {}
+
+    if (cache) {
+      setPedido(cache);
+      setLoading(false);
+      loadPedido(true); // refresco silencioso, no bloquea la pantalla
+    } else {
+      loadPedido(); // entrada directa por URL: sí esperamos el fetch normal
+    }
   }, [ordenId, router]);
 
-  async function loadPedido() {
-    setLoading(true);
-    setError('');
+  async function loadPedido(silent = false) {
+    if (!silent) { setLoading(true); setError(''); }
     try {
       const data = await api.getPedido(ordenId);
       setPedido(data);
+      try { sessionStorage.setItem('pedido:' + ordenId, JSON.stringify(data)); } catch {}
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar pedido');
+      if (!silent) setError(err instanceof Error ? err.message : 'Error al cargar pedido');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }
 
@@ -131,7 +146,11 @@ export default function PedidoDetallePage() {
         : `Estado actualizado a "${nuevo}"`
     );
     setTimeout(() => setToast(''), 3000);
-    loadPedido();
+    // Actualiza en pantalla al instante — no esperamos otro fetch completo.
+    setPedido(prev => prev ? { ...prev, ESTATUS_ENVIO: nuevo } : prev);
+    // De fondo, confirma con el backend (costos de empaque, fecha de entrega, etc.)
+    // sin bloquear la pantalla.
+    loadPedido(true);
   }
 
   try {
@@ -693,11 +712,20 @@ export default function PedidoDetallePage() {
           ordenId={pedido.ORDEN_ID}
           saldoActual={pedido.totales.saldo}
           onClose={() => setShowPayModal(false)}
-          onSaved={() => {
+          onSaved={(pago) => {
             setShowPayModal(false);
             setToast('Pago registrado');
             setTimeout(() => setToast(''), 2500);
-            loadPedido();
+            // Actualiza pagado/saldo al instante (aritmética simple, no depende del backend).
+            setPedido(prev => {
+              if (!prev) return prev;
+              const pagos = [...prev.pagos, pago];
+              const pagado = Math.round(pagos.reduce((s, p) => s + (Number(p.MONTO) || 0), 0) * 100) / 100;
+              const saldo = Math.round((prev.totales.venta - pagado) * 100) / 100;
+              return { ...prev, pagos, totales: { ...prev.totales, pagado, saldo } };
+            });
+            // De fondo, confirma con el backend sin bloquear la pantalla.
+            loadPedido(true);
           }}
         />
       )}
