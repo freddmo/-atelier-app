@@ -1,14 +1,11 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { Pedido } from '@/lib/types';
 
 type Props = {
   pedido: Pedido;
   showMoney?: boolean;
 };
-
-const MAX_CHIPS = 5;
 
 // Mapa de colores FIGS → hex para el puntito del chip
 const COLOR_HEX: Record<string, string> = {
@@ -83,28 +80,40 @@ function ItemChip({ nombre, talla, longitud, color }: { nombre: string; talla?: 
   );
 }
 
-// Bloque de info del cliente (dirección, ciudad, especialización) + chips de ítems
+// Bloque de info del cliente (dirección, teléfono, cédula/RUC, industria) + chips de TODOS los ítems
 function CardExtra({ pedido }: { pedido: Pedido }) {
   const items = (pedido.items || []).filter(
     it => String((it as any).ESTATUS_ITEM || '').toUpperCase().trim() !== 'CANCELADO'
   );
   const dir = pedido.cliente?.DIRECCION?.trim();
   const ciudad = pedido.cliente?.CIUDAD?.trim();
+  const telefono = pedido.cliente?.TELEFONO?.trim();
+  const cedulaRuc = pedido.cliente?.CEDULA_RUC?.trim();
   const industria = pedido.cliente?.INDUSTRIA?.trim();
-  const muchos = items.length > MAX_CHIPS;
-  const visibles = muchos ? [] : items;
 
-  const hayInfo = dir || industria || items.length > 0;
+  const hayInfo = dir || telefono || cedulaRuc || industria || items.length > 0;
   if (!hayInfo) return null;
 
   return (
     <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {(dir || ciudad || industria) && (
+      {(dir || ciudad || telefono || cedulaRuc || industria) && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: 12, color: 'var(--text-soft)' }}>
           {dir && (
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
               <span style={{ color: 'var(--text-faint)' }}>📍</span>
               {dir}{ciudad ? `, ${ciudad}` : ''}
+            </span>
+          )}
+          {telefono && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ color: 'var(--text-faint)' }}>📞</span>
+              {telefono}
+            </span>
+          )}
+          {cedulaRuc && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ color: 'var(--text-faint)' }}>🪪</span>
+              {cedulaRuc}
             </span>
           )}
           {industria && (
@@ -117,30 +126,23 @@ function CardExtra({ pedido }: { pedido: Pedido }) {
       )}
 
       {items.length > 0 && (
-        muchos ? (
-          <div style={{ fontSize: 12, color: 'var(--blue)', fontStyle: 'italic' }}>
-            {items.length} prendas · chequear los ítems más a fondo →
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {visibles.map((it, i) => (
-              <ItemChip key={i} nombre={shortName(it as any)} talla={(it as any).TALLA} longitud={(it as any).LONGITUD} color={(it as any).COLOR} />
-            ))}
-          </div>
-        )
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {items.map((it, i) => (
+            <ItemChip key={i} nombre={shortName(it as any)} talla={(it as any).TALLA} longitud={(it as any).LONGITUD} color={(it as any).COLOR} />
+          ))}
+        </div>
       )}
     </div>
   );
 }
 
 export default function OrderCard({ pedido, showMoney = false }: Props) {
-  const router = useRouter();
   const atraso = diasAtraso(pedido);
   const saldo = pedido.totales.saldo;
   const hasRegalo = !!pedido.REGALO_ENVIADO && String(pedido.REGALO_ENVIADO).trim() !== '';
 
   return (
-    <div className="card clickable" onClick={() => router.push(`/pedido/${encodeURIComponent(pedido.ORDEN_ID)}`)} style={{ padding: '20px 24px' }}>
+    <div className="card" style={{ padding: '20px 24px' }}>
       {/* DESKTOP */}
       <div className="hide-mobile">
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: 24, alignItems: 'center' }}>
@@ -174,7 +176,6 @@ export default function OrderCard({ pedido, showMoney = false }: Props) {
               : <div style={{ fontSize: 11, color: 'var(--green)', marginTop: 4 }}>Pagado</div>
             )}
           </div>
-          <div style={{ color: 'var(--text-faint)', fontSize: 18 }}>→</div>
         </div>
         <CardExtra pedido={pedido} />
       </div>
@@ -191,7 +192,6 @@ export default function OrderCard({ pedido, showMoney = false }: Props) {
               <span className="mono">{pedido.ORDEN_ID}</span> {pedido.cliente?.CIUDAD ? `· ${pedido.cliente.CIUDAD}` : ''}
             </div>
           </div>
-          <div style={{ color: 'var(--text-faint)', fontSize: 18 }}>→</div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
           <span className={`pill ${stateClass(pedido.ESTATUS_ENVIO)}`}>{pedido.ESTATUS_ENVIO}</span>
