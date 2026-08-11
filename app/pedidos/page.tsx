@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { auth } from '@/lib/auth';
@@ -17,7 +17,6 @@ export default function PedidosPage() {
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
   const [isAdmin, setIsAdmin] = useState(false);
   const [isBodega, setIsBodega] = useState(false);
-  const [savingPrioridad, setSavingPrioridad] = useState<string | null>(null);
 
   useEffect(() => {
     const user = auth.getUser();
@@ -40,24 +39,6 @@ export default function PedidosPage() {
     }
   }
 
-  async function handlePrioridad(ordenId: string, valor: string) {
-    const user = auth.getUser();
-    if (!user) return;
-    const num = valor.trim() === '' ? '' : Number(valor);
-    if (num !== '' && (isNaN(num as number) || (num as number) < 1)) return;
-    setSavingPrioridad(ordenId);
-    try {
-      await api.setPrioridad(ordenId, num as number | '', user.usuario);
-      setPedidos(prev =>
-        prev.map(p => p.ORDEN_ID === ordenId ? { ...p, PRIORIDAD: num === '' ? undefined : num } : p)
-      );
-    } catch (err) {
-      alert('Error al guardar prioridad: ' + (err instanceof Error ? err.message : err));
-    } finally {
-      setSavingPrioridad(null);
-    }
-  }
-
   const activos = pedidos.filter(
     p => p.ESTATUS_ENVIO !== 'ENTREGADO' && p.ESTATUS_ENVIO !== 'CANCELADO'
   );
@@ -73,16 +54,7 @@ export default function PedidosPage() {
     );
   }
 
-  // Separar EN BODEGA EC (con orden de prioridad) del resto
-  const enBodega = filtered
-    .filter(p => p.ESTATUS_ENVIO === 'EN BODEGA EC')
-    .sort((a, b) => {
-      const pa = Number(a.PRIORIDAD) || 9999;
-      const pb = Number(b.PRIORIDAD) || 9999;
-      return pa - pb;
-    });
-  const resto = filtered.filter(p => p.ESTATUS_ENVIO !== 'EN BODEGA EC');
-  const ordenados = [...enBodega, ...resto];
+  const ordenados = filtered;
 
   const counts = {
     listo: activos.filter(p => p.ESTATUS_ENVIO === 'LISTO PARA ENVIAR').length,
@@ -142,14 +114,6 @@ export default function PedidosPage() {
           </select>
         </div>
 
-        {/* Leyenda de prioridad (solo si hay pedidos en bodega) */}
-        {isAdmin && enBodega.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, padding: '10px 14px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, color: 'var(--text-soft)' }}>
-            <span style={{ color: 'var(--blue)', fontSize: 14 }}>↕</span>
-            Los pedidos <strong style={{ color: 'var(--text)' }}>EN BODEGA EC</strong> se muestran primero, ordenados por prioridad. Escribe un número (1 = más urgente) y presiona Enter para guardar.
-          </div>
-        )}
-
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {loading ? (
             <div style={{ textAlign: 'center', padding: 64, color: 'var(--text-faint)' }}>Cargando pedidos…</div>
@@ -157,77 +121,11 @@ export default function PedidosPage() {
             <div style={{ textAlign: 'center', padding: 64, color: 'var(--text-faint)' }}>No hay pedidos que coincidan</div>
           ) : (
             ordenados.map(p => (
-              <div key={p.ORDEN_ID}>
-                {/* Campo de prioridad — solo admin, solo EN BODEGA EC */}
-                {isAdmin && p.ESTATUS_ENVIO === 'EN BODEGA EC' && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, paddingLeft: 4 }}>
-                    <span style={{ fontSize: 11, color: 'var(--text-faint)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                      Prioridad
-                    </span>
-                    <PrioridadInput
-                      ordenId={p.ORDEN_ID}
-                      valor={p.PRIORIDAD !== undefined && p.PRIORIDAD !== '' ? String(p.PRIORIDAD) : ''}
-                      saving={savingPrioridad === p.ORDEN_ID}
-                      onSave={handlePrioridad}
-                    />
-                    {Number(p.PRIORIDAD) > 0 && (
-                      <span style={{ fontSize: 11, color: 'var(--blue)', fontWeight: 500 }}>
-                        #{p.PRIORIDAD}
-                      </span>
-                    )}
-                  </div>
-                )}
-                <OrderCard pedido={p} showMoney={isAdmin} />
-              </div>
+              <OrderCard key={p.ORDEN_ID} pedido={p} showMoney={isAdmin} />
             ))
           )}
         </div>
       </div>
     </>
-  );
-}
-
-// Campo de prioridad con debounce al presionar Enter o al salir del foco
-function PrioridadInput({
-  ordenId, valor, saving, onSave
-}: {
-  ordenId: string;
-  valor: string;
-  saving: boolean;
-  onSave: (ordenId: string, valor: string) => void;
-}) {
-  const [local, setLocal] = useState(valor);
-  const ref = useRef<HTMLInputElement>(null);
-
-  // Sincronizar si cambia desde afuera
-  useEffect(() => { setLocal(valor); }, [valor]);
-
-  function commit() {
-    if (local !== valor) onSave(ordenId, local);
-  }
-
-  return (
-    <input
-      ref={ref}
-      type="number"
-      min={1}
-      value={local}
-      onChange={e => setLocal(e.target.value)}
-      onBlur={commit}
-      onKeyDown={e => { if (e.key === 'Enter') { commit(); ref.current?.blur(); } }}
-      disabled={saving}
-      placeholder="—"
-      style={{
-        width: 52,
-        padding: '2px 6px',
-        fontSize: 13,
-        border: '1px solid var(--border)',
-        borderRadius: 4,
-        background: saving ? 'var(--surface)' : 'var(--bg)',
-        color: 'var(--text)',
-        textAlign: 'center',
-        opacity: saving ? 0.5 : 1,
-      }}
-    />
   );
 }
