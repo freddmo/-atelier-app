@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { Pedido } from '@/lib/types';
 
 type Props = {
@@ -137,9 +138,17 @@ function CardExtra({ pedido }: { pedido: Pedido }) {
 }
 
 export default function OrderCard({ pedido, showMoney = false }: Props) {
+  const router = useRouter();
   const atraso = diasAtraso(pedido);
   const saldo = pedido.totales.saldo;
   const hasRegalo = !!pedido.REGALO_ENVIADO && String(pedido.REGALO_ENVIADO).trim() !== '';
+
+  function gestionar() {
+    // Guardamos el pedido ya cargado para que el detalle abra al instante,
+    // sin volver a pedirlo al backend.
+    try { sessionStorage.setItem('pedido:' + pedido.ORDEN_ID, JSON.stringify(pedido)); } catch {}
+    router.push(`/pedido/${encodeURIComponent(pedido.ORDEN_ID)}`);
+  }
 
   return (
     <div className="card" style={{ padding: '20px 24px' }}>
@@ -176,6 +185,9 @@ export default function OrderCard({ pedido, showMoney = false }: Props) {
               : <div style={{ fontSize: 11, color: 'var(--green)', marginTop: 4 }}>Pagado</div>
             )}
           </div>
+          <button className="btn" onClick={gestionar} style={{ padding: '6px 14px', fontSize: 12, whiteSpace: 'nowrap' }}>
+            Gestionar
+          </button>
         </div>
         <CardExtra pedido={pedido} />
       </div>
@@ -205,6 +217,9 @@ export default function OrderCard({ pedido, showMoney = false }: Props) {
           : <div style={{ fontSize: 11, color: 'var(--green)' }}>Pagado</div>
         )}
         <CardExtra pedido={pedido} />
+        <button className="btn" onClick={gestionar} style={{ width: '100%', justifyContent: 'center', fontSize: 12 }}>
+          Gestionar
+        </button>
       </div>
     </div>
   );
