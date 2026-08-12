@@ -34,15 +34,20 @@ function corteActual() {
 
 export default function FinanzasPage() {
   const router = useRouter();
-  const corte = corteActual();
-  const [desde, setDesde] = useState(corte.desde);
-  const [hasta, setHasta] = useState(corte.hasta);
+  const [desde, setDesde] = useState('');
+  const [hasta, setHasta] = useState('');
   const [donacion, setDonacion] = useState(0);
 
   useEffect(() => {
     const user = auth.getUser();
     if (!user) { router.replace('/login'); return; }
     if (user.rol !== 'admin') { router.replace('/pedidos'); return; }
+    // Se calcula aquí (solo en el navegador) para evitar un mismatch de
+    // hydration entre el servidor (UTC) y el cliente (Ecuador) — desde/hasta
+    // SÍ se muestran en pantalla (inputs de fecha del corte).
+    const corte = corteActual();
+    setDesde(corte.desde);
+    setHasta(corte.hasta);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
