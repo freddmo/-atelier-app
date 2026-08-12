@@ -419,6 +419,7 @@ export default function StockPage() {
   const [despacharId, setDespacharId] = useState('');
   const [despCourier, setDespCourier] = useState('');
   const [despFecha, setDespFecha] = useState('');
+  const [fechaHoy, setFechaHoy] = useState('');
 
   const todayISO = new Date().toISOString().split('T')[0];
 
@@ -426,6 +427,10 @@ export default function StockPage() {
     const user = auth.getUser();
     if (!user) { router.replace('/login'); return; }
     setIsAdmin(user.rol === 'admin');
+    // Se calcula aquí (solo en el navegador) para evitar un mismatch de
+    // hydration entre el servidor (UTC) y el cliente (Ecuador) — se
+    // muestra en el header ("...· 11 de agosto de 2026").
+    setFechaHoy(new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }));
     load();
   }, [router]);
 
@@ -504,11 +509,11 @@ export default function StockPage() {
     await api.setColor(color, hex, user.usuario);
     // Refleja el nuevo hex en todos los lotes de ese color, sin recargar
     setLotes(prev => prev.map(l =>
-      (l.COLOR || '').toUpperCase().trim() === color.toUpperCase().trim()
+      String(l.COLOR || '').toUpperCase().trim() === color.toUpperCase().trim()
         ? { ...l, COLOR_HEX: hex } : l
     ));
     setEnCamino(prev => prev.map(l =>
-      (l.COLOR || '').toUpperCase().trim() === color.toUpperCase().trim()
+      String(l.COLOR || '').toUpperCase().trim() === color.toUpperCase().trim()
         ? { ...l, COLOR_HEX: hex } : l
     ));
   }
@@ -533,8 +538,8 @@ export default function StockPage() {
     ...enCamino.map(l => ({ LOTE_ID: l.LOTE_ID, NOMBRE_PRODUCTO: l.NOMBRE_PRODUCTO, TIPO_PRENDA: l.TIPO_PRENDA, TALLA: l.TALLA, LONGITUD: l.LONGITUD, COLOR: l.COLOR, enCamino: true })),
   ].filter(p => !lotesEnCombos.has(p.LOTE_ID));
 
-  const superiores = piezasParaArmar.filter(p => ['TOP', 'CAMISA'].includes((p.TIPO_PRENDA || '').toUpperCase()));
-  const inferiores = piezasParaArmar.filter(p => (p.TIPO_PRENDA || '').toUpperCase() === 'PANTALON');
+  const superiores = piezasParaArmar.filter(p => ['TOP', 'CAMISA'].includes(String(p.TIPO_PRENDA || '').toUpperCase()));
+  const inferiores = piezasParaArmar.filter(p => String(p.TIPO_PRENDA || '').toUpperCase() === 'PANTALON');
   const piezaSup = piezasParaArmar.find(p => p.LOTE_ID === selSuperior);
   const piezaInf = piezasParaArmar.find(p => p.LOTE_ID === selInferior);
 
@@ -603,7 +608,6 @@ export default function StockPage() {
 
   const totalPiezas = lotesLibres.reduce((s, l) => s + l.CANT_DISPONIBLE, 0);
   const totalCamino = caminoLibres.reduce((s, l) => s + l.CANT_DISPONIBLE, 0);
-  const today = new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
 
   return (
     <>
@@ -618,7 +622,7 @@ export default function StockPage() {
               Stock<em style={{ color: 'var(--gold)' }}>.</em>
             </h1>
             <p style={{ color: 'var(--text-soft)', margin: '8px 0 0', fontSize: 13 }}>
-              {totalPiezas} suelto{totalPiezas !== 1 ? 's' : ''} · {totalCamino} en camino · {combos.length} conjunto{combos.length !== 1 ? 's' : ''} · {today}
+              {totalPiezas} suelto{totalPiezas !== 1 ? 's' : ''} · {totalCamino} en camino · {combos.length} conjunto{combos.length !== 1 ? 's' : ''} · {fechaHoy}
             </p>
           </div>
           <div className="stock-actions" style={{ display: 'flex', gap: 8 }}>
@@ -895,7 +899,7 @@ export default function StockPage() {
                         const eta = fmtEta(c.eta);
                         const hexSup = c.superior.COLOR_HEX || '';
                         const hexInf = c.inferior.COLOR_HEX || '';
-                        const mismoColor = (c.superior.COLOR || '').toUpperCase().trim() === (c.inferior.COLOR || '').toUpperCase().trim();
+                        const mismoColor = String(c.superior.COLOR || '').toUpperCase().trim() === String(c.inferior.COLOR || '').toUpperCase().trim();
                         return (
                           <div key={c.COMBO_ID} className="card" style={{ padding: 16, position: 'relative', borderColor: c.enCamino ? 'var(--amber)' : undefined }}>
                             <button
@@ -939,7 +943,7 @@ export default function StockPage() {
                             </div>
 
                             {[c.superior, c.inferior].map((p, i) => {
-                              const estado = (p.ESTADO_VIAJE || '').toUpperCase();
+                              const estado = String(p.ESTADO_VIAJE || '').toUpperCase();
                               const enDespacho = despacharId === p.LOTE_ID;
                               return (
                                 <div key={p.LOTE_ID} style={{ marginBottom: i === 0 ? 8 : 0 }}>
@@ -1061,7 +1065,7 @@ export default function StockPage() {
                 ) : (
                   <div className="print-hide" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
                     {caminoLibres.map(l => {
-                      const estado = (l.ESTADO_VIAJE || '').toUpperCase();
+                      const estado = String(l.ESTADO_VIAJE || '').toUpperCase();
                       const eta = fmtEta(l.eta);
                       const enDespacho = despacharId === l.LOTE_ID;
                       return (
