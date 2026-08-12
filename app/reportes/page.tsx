@@ -31,15 +31,20 @@ export default function ReportesPage() {
   const router = useRouter();
   const [reporte, setReporte] = useState<ReporteData | null>(null);
   const [loading, setLoading] = useState(true);
-  const today = new Date();
-  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-  const [fechaInicio, setFechaInicio] = useState(firstOfMonth.toISOString().split('T')[0]);
-  const [fechaFin, setFechaFin] = useState(today.toISOString().split('T')[0]);
+  const [fechaInicio, setFechaInicio] = useState('');
+  const [fechaFin, setFechaFin] = useState('');
 
   useEffect(() => {
     const user = auth.getUser();
     if (!user) { router.replace('/login'); return; }
     if (user.rol !== 'admin') { router.replace('/pedidos'); return; }
+    // Se calcula aquí (solo en el navegador) para evitar un mismatch de
+    // hydration entre el servidor (UTC) y el cliente (Ecuador) — estos
+    // campos SÍ se muestran en pantalla (inputs "Desde"/"Hasta").
+    const hoy = new Date();
+    const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    setFechaInicio(primerDiaMes.toISOString().split('T')[0]);
+    setFechaFin(hoy.toISOString().split('T')[0]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
 
