@@ -16,14 +16,13 @@ function fmtMoney(n: number) {
 
 export default function CargarCourierPage() {
   const router = useRouter();
-  const today = new Date().toISOString().split('T')[0];
 
   const [pedidosItems, setPedidosItems] = useState<PedidoItemsCourier[]>([]);
   const [lotes, setLotes] = useState<LotePendienteCourier[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [costoCourier, setCostoCourier] = useState('');
-  const [fecha, setFecha] = useState(today);
+  const [fecha, setFecha] = useState('');
 
   const [itemsSel, setItemsSel] = useState<Set<number>>(new Set());
   const [lotesSel, setLotesSel] = useState<string[]>([]);
@@ -35,6 +34,10 @@ export default function CargarCourierPage() {
     const user = auth.getUser();
     if (!user) { router.replace('/login'); return; }
     if (user.rol !== 'admin') { router.replace('/pedidos'); return; }
+    // Se calcula aquí (solo en el navegador) para evitar un mismatch de
+    // hydration entre el servidor (UTC) y el cliente (Ecuador) — este
+    // campo SÍ se muestra en pantalla (input de fecha de llegada).
+    setFecha(new Date().toISOString().split('T')[0]);
     load();
   }, [router]);
 
