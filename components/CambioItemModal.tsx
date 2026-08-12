@@ -31,17 +31,17 @@ export default function CambioItemModal({ ordenId, item, onClose, onDone }: Prop
 
   // Lo que llegó (a stock) — prefill con datos del ítem
   const [skuStock, setSkuStock] = useState(item.SKU);
-  const [tallaStock, setTallaStock] = useState(item.TALLA);
+  const [tallaStock, setTallaStock] = useState(String(item.TALLA || ''));
   const [longStock, setLongStock] = useState(item.LONGITUD || 'Regular');
-  const [colorStock, setColorStock] = useState(item.COLOR);
+  const [colorStock, setColorStock] = useState(String(item.COLOR || ''));
   const [costoStock, setCostoStock] = useState(item.COSTO_UNITARIO != null ? String(item.COSTO_UNITARIO) : '');
 
   // Lo que se re-pide — por defecto el mismo ítem
   const [otraPrenda, setOtraPrenda] = useState(false);
   const [skuY, setSkuY] = useState(item.SKU);
-  const [tallaY, setTallaY] = useState(item.TALLA);
+  const [tallaY, setTallaY] = useState(String(item.TALLA || ''));
   const [longY, setLongY] = useState(item.LONGITUD || 'Regular');
-  const [colorY, setColorY] = useState(item.COLOR);
+  const [colorY, setColorY] = useState(String(item.COLOR || ''));
 
   useEffect(() => { api.getProductos().then(setProductos).catch(() => {}); }, []);
 
