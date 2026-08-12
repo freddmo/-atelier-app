@@ -17,6 +17,14 @@ export default function PedidosPage() {
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
   const [isAdmin, setIsAdmin] = useState(false);
   const [isBodega, setIsBodega] = useState(false);
+  const [fechaHoy, setFechaHoy] = useState('');
+
+  useEffect(() => {
+    // Se calcula SOLO en el navegador, nunca en el servidor,
+    // para que nunca haya un desfase de fecha/hora que cause
+    // un error de hydration (React #418) al comparar server vs cliente.
+    setFechaHoy(new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }));
+  }, []);
 
   useEffect(() => {
     const user = auth.getUser();
@@ -71,7 +79,7 @@ export default function PedidosPage() {
             <span style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', opacity: 0.6 }}>Vista</span>
             <span style={{ fontSize: 13 }}>{isBodega ? 'Bodega · Operaciones' : 'Administración'}</span>
           </div>
-          <span style={{ fontSize: 12, opacity: 0.7 }}>{new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+          <span style={{ fontSize: 12, opacity: 0.7 }}>{fechaHoy}</span>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 32, gap: 16, flexWrap: 'wrap' }}>
