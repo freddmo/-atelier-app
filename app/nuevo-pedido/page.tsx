@@ -40,7 +40,6 @@ type LineaProducto = {
 
 export default function NuevoPedidoPage() {
   const router = useRouter();
-  const today = new Date().toISOString().split('T')[0];
 
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [sets, setSets] = useState<SetCatalogo[]>([]);
@@ -61,7 +60,7 @@ export default function NuevoPedidoPage() {
   const [lineas, setLineas] = useState<LineaProducto[]>([]);
   const [precioNegociado, setPrecioNegociado] = useState('');
   const [notas, setNotas] = useState('');
-  const [fecha, setFecha] = useState(today);
+  const [fecha, setFecha] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState('');
@@ -70,6 +69,10 @@ export default function NuevoPedidoPage() {
     const user = auth.getUser();
     if (!user) { router.replace('/login'); return; }
     if (user.rol !== 'admin') { router.replace('/pedidos'); return; }
+    // Se calcula aquí (solo en el navegador) para evitar un mismatch de
+    // hydration entre el servidor (UTC) y el cliente (Ecuador) — este
+    // campo SÍ se muestra en pantalla (input "Fecha del pedido").
+    setFecha(new Date().toISOString().split('T')[0]);
     load();
   }, [router]);
 
@@ -95,7 +98,7 @@ export default function NuevoPedidoPage() {
 
   // ===== CLIENTE =====
   const clientesFiltrados = clienteBusqueda.trim()
-    ? clientes.filter(c => c.NOMBRE.toLowerCase().includes(clienteBusqueda.toLowerCase()))
+    ? clientes.filter(c => String(c.NOMBRE || '').toLowerCase().includes(clienteBusqueda.toLowerCase()))
     : [];
 
   async function handleGuardarCliente() {
