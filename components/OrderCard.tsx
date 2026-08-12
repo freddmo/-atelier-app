@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Pedido } from '@/lib/types';
 
@@ -80,7 +80,7 @@ function generarMensajeListoParaEnviar(pedido: Pedido): string {
   return mensaje;
 }
 
-function diasAtraso(pedido: Pedido): number | null {
+function calcularDiasAtraso(pedido: Pedido): number | null {
   if (pedido.ESTATUS_ENVIO === 'ENTREGADO' || pedido.ESTATUS_ENVIO === 'CANCELADO') return null;
   if (!pedido.F_ENTREGA_EST) return null;
   if (isNaN(Date.parse(pedido.F_ENTREGA_EST + 'T12:00:00'))) return null;
@@ -178,7 +178,13 @@ function CardExtra({ pedido }: { pedido: Pedido }) {
 export default function OrderCard({ pedido, showMoney = false }: Props) {
   const router = useRouter();
   const [copiado, setCopiado] = useState<'cobro' | 'listo' | null>(null);
-  const atraso = diasAtraso(pedido);
+  // Empieza en null (igual en servidor y cliente) y se calcula de verdad
+  // solo en el navegador, para evitar un mismatch de hydration (React #418)
+  // cuando el servidor (UTC) y el cliente (Ecuador) creen que es un día distinto.
+  const [atraso, setAtraso] = useState<number | null>(null);
+  useEffect(() => {
+    setAtraso(calcularDiasAtraso(pedido));
+  }, [pedido.ESTATUS_ENVIO, pedido.F_ENTREGA_EST]);
   const saldo = pedido.totales.saldo;
   const hasRegalo = !!pedido.REGALO_ENVIADO && String(pedido.REGALO_ENVIADO).trim() !== '';
   const listoParaEnviar = pedido.ESTATUS_ENVIO === 'LISTO PARA ENVIAR';
