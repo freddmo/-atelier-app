@@ -43,14 +43,13 @@ const TRANSPORTES = ['FEDEX', 'USPS', 'Otro'];
 
 export default function CargarFacturaPage() {
   const router = useRouter();
-  const today = new Date().toISOString().split('T')[0];
 
   const [pedidosPendientes, setPedidosPendientes] = useState<PedidoPendienteCostos[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [numFactura, setNumFactura] = useState('');
-  const [fecha, setFecha] = useState(today);
+  const [fecha, setFecha] = useState('');
   const [iva, setIva] = useState('0');
   const [shipping, setShipping] = useState('0');
 
@@ -69,6 +68,10 @@ export default function CargarFacturaPage() {
     const user = auth.getUser();
     if (!user) { router.replace('/login'); return; }
     if (user.rol !== 'admin') { router.replace('/pedidos'); return; }
+    // Se calcula aquí (solo en el navegador) para evitar un mismatch de
+    // hydration entre el servidor (UTC) y el cliente (Ecuador) — este
+    // campo SÍ se muestra en pantalla (input de fecha de factura).
+    setFecha(new Date().toISOString().split('T')[0]);
     load();
   }, [router]);
 
