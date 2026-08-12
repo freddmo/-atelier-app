@@ -17,10 +17,12 @@ export const auth = {
   },
 
   setUser(user: Usuario) {
+    if (typeof window === 'undefined') return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
   },
 
   clear() {
+    if (typeof window === 'undefined') return;
     localStorage.removeItem(STORAGE_KEY);
   },
 
