@@ -1,9 +1,45 @@
 // lib/api.ts — Cliente API v4.0 (Sheet nuevo, lotes de stock)
 import { Pedido, Usuario, Estado, Producto } from './types';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
-if (!API_URL) {
-  console.warn('⚠️ NEXT_PUBLIC_API_URL no está configurada');
+// ── URL del backend (Apps Script) ─────────────────────────────────────────
+// En vez de "hornear" la URL en el build de Vercel (lo que obliga a hacer
+// Redeploy cada vez que cambia), la leemos en el navegador desde un archivito
+// en GitHub. Así, si algún día cambia el deployment de Apps Script, basta con
+// editar ese archivo en github.com — sin tocar Vercel para nada.
+//
+// ⚠️ AJUSTA esta URL una sola vez con tu usuario/repo/rama reales:
+const CONFIG_URL = 'https://raw.githubusercontent.com/freddmo/-atelier-app/main/api-config.json';
+
+// Respaldo por si GitHub no responde (o en desarrollo local) — la variable
+// de entorno de siempre, se sigue usando como plan B.
+const FALLBACK_URL = process.env.NEXT_PUBLIC_API_URL || '';
+
+let cachedApiUrl: string | null = null;
+let resolvingApiUrl: Promise<string> | null = null;
+
+async function getApiUrl(): Promise<string> {
+  if (cachedApiUrl) return cachedApiUrl;
+  if (resolvingApiUrl) return resolvingApiUrl;
+
+  resolvingApiUrl = (async (): Promise<string> => {
+    try {
+      const res = await fetch(CONFIG_URL, { cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        if (json && typeof json.apiUrl === 'string' && json.apiUrl.trim()) {
+          const url = json.apiUrl.trim();
+          cachedApiUrl = url;
+          return url;
+        }
+      }
+    } catch (e) {
+      console.warn('No se pudo leer api-config.json de GitHub, uso la URL de respaldo.', e);
+    }
+    cachedApiUrl = FALLBACK_URL;
+    return FALLBACK_URL;
+  })();
+
+  return resolvingApiUrl;
 }
 
 export class ApiError extends Error {
@@ -16,7 +52,9 @@ export class ApiError extends Error {
 }
 
 async function apiCall<T>(params: Record<string, string>): Promise<T> {
-  const url = new URL(API_URL);
+  const apiUrl = await getApiUrl();
+  if (!apiUrl) throw new ApiError('No hay URL de API configurada (ni en GitHub ni en Vercel)', 0);
+  const url = new URL(apiUrl);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   const res = await fetch(url.toString(), { method: 'GET', cache: 'no-store' });
   if (!res.ok) throw new ApiError(`HTTP ${res.status}`, res.status);
@@ -303,7 +341,12 @@ export const api = {
     return apiCall<Pedido[]>({ action: 'getPedidos' });
   },
   async getPedido(id: string): Promise<Pedido> {
-    return apiCall<Pedido>({ action: 'getPedido', id });
+    // El backend envuelve el pedido en un arreglo de 1 elemento (evita un
+    // capricho de Google Apps Script que falla al entregar un objeto suelto
+    // como "data" — confirmado con pruebas). Aquí lo desenvolvemos.
+    const result = await apiCall<Pedido[]>({ action: 'getPedido', id });
+    if (!result || result.length === 0) throw new ApiError('Pedido no encontrado', 404);
+    return result[0];
   },
   async getRegalos(): Promise<Regalo[]> {
     return apiCall<Regalo[]>({ action: 'getRegalos' });
