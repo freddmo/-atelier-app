@@ -12,11 +12,10 @@ function fmtMoney(n: number) {
 
 export default function AsignarStockPage() {
   const router = useRouter();
-  const today = new Date().toISOString().split('T')[0];
 
   const [pedidos, setPedidos] = useState<PedidoConStock[]>([]);
   const [loading, setLoading] = useState(true);
-  const [fecha, setFecha] = useState(today);
+  const [fecha, setFecha] = useState('');
   const [seleccionados, setSeleccionados] = useState<string[]>([]); // claves "ordenId|rowNum"
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState('');
@@ -25,6 +24,9 @@ export default function AsignarStockPage() {
     const user = auth.getUser();
     if (!user) { router.replace('/login'); return; }
     if (user.rol !== 'admin') { router.replace('/pedidos'); return; }
+    // Se calcula aquí (solo en el navegador) para evitar un mismatch de
+    // hydration entre el servidor (UTC) y el cliente (Ecuador).
+    setFecha(new Date().toISOString().split('T')[0]);
     load();
   }, [router]);
 
