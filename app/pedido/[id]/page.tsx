@@ -226,7 +226,7 @@ export default function PedidoDetallePage() {
 
   function generarMensajeWhatsApp() {
     if (!pedido) return;
-    const saldo = pedido.totales.saldo;
+    const saldo = (pedido.totales?.saldo ?? 0);
     let mensaje = `💕 *¡Tu FIGS te está esperando!* 💕\n\n`;
     mensaje += `🚚 Nuestros envíos (delivery o Servientrega) se realizan en los siguientes horarios:\n`;
     mensaje += `🗓️ *Martes y Jueves*\n`;
@@ -265,7 +265,7 @@ export default function PedidoDetallePage() {
 
   const currentIdx = ESTADOS.indexOf(pedido.ESTATUS_ENVIO);
   const atraso = diasAtraso(pedido);
-  const saldo = pedido.totales.saldo;
+  const saldo = (pedido.totales?.saldo ?? 0);
   const showMoney = isAdmin;
   const hasRegalo = !!pedido.REGALO_ENVIADO && String(pedido.REGALO_ENVIADO).trim() !== '';
   const totalCantidad = pedido.items.reduce((a, i) => a + (Number(i.CANTIDAD) || 0), 0);
@@ -475,11 +475,11 @@ export default function PedidoDetallePage() {
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '6px 0' }}>
                   <span style={{ color: 'var(--text-soft)', fontSize: 14 }}>Total venta</span>
-                  <span className="display tabular" style={{ fontSize: 22 }}>{fmtMoney(pedido.totales.venta)}</span>
+                  <span className="display tabular" style={{ fontSize: 22 }}>{fmtMoney((pedido.totales?.venta ?? 0))}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '6px 0' }}>
                   <span style={{ color: 'var(--text-soft)', fontSize: 14 }}>Pagado</span>
-                  <span className="tabular" style={{ fontSize: 15, color: 'var(--green)' }}>{fmtMoney(pedido.totales.pagado)}</span>
+                  <span className="tabular" style={{ fontSize: 15, color: 'var(--green)' }}>{fmtMoney((pedido.totales?.pagado ?? 0))}</span>
                 </div>
               </div>
               <div style={{ paddingTop: 14, borderTop: '1px solid var(--border)' }}>
@@ -559,11 +559,11 @@ export default function PedidoDetallePage() {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '3px 0', color: 'var(--text-soft)' }}>
                   <span>Costos totales</span>
-                  <span className="tabular">{fmtMoney(pedido.totales.costos)}</span>
+                  <span className="tabular">{fmtMoney((pedido.totales?.costos ?? 0))}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 500, padding: '5px 0', borderTop: '1px solid var(--border)', marginTop: 4 }}>
                   <span>Ganancia</span>
-                  <span className="tabular" style={{ color: 'var(--green)' }}>{fmtMoney(pedido.totales.ganancia)}</span>
+                  <span className="tabular" style={{ color: 'var(--green)' }}>{fmtMoney((pedido.totales?.ganancia ?? 0))}</span>
                 </div>
               </div>
 
@@ -710,7 +710,7 @@ export default function PedidoDetallePage() {
       {showPayModal && (
         <PaymentModal
           ordenId={pedido.ORDEN_ID}
-          saldoActual={pedido.totales.saldo}
+          saldoActual={(pedido.totales?.saldo ?? 0)}
           onClose={() => setShowPayModal(false)}
           onSaved={(pago) => {
             setShowPayModal(false);
