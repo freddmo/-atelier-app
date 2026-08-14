@@ -664,6 +664,17 @@ export const api = {
     }>({ action: 'getCapitalReal' });
   },
 
+  // --- Ganancia proyectada: profit "en camino" de pedidos aún no cerrados
+  // (no entregados, o entregados pero con saldo pendiente) ---
+  async getGananciaProyectada() {
+    return apiCall<{
+      porEntregar: { pedidos: number; venta: number; costo: number; gananciaEstimada: number };
+      entregadoSinCobrar: { pedidos: number; venta: number; costo: number; saldoPendiente: number; gananciaEstimada: number };
+      totalGananciaEstimada: number;
+      detalle: { ORDEN_ID: string; NOMBRE: string; estado: string; saldo: number; venta: number; costo: number; ganancia: number }[];
+    }>({ action: 'getGananciaProyectada' });
+  },
+
   // --- PIE CHART: costos por tipo (a donde va el dinero) ---
   async getCostosPorTipo(fechaInicio?: string, fechaFin?: string) {
     const params: Record<string, string> = { action: 'getCostosPorTipo' };
