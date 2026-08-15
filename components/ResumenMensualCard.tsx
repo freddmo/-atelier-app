@@ -73,10 +73,13 @@ export default function ResumenMensualCard({
   return (
     <div className="card" style={{ padding: 24, borderTop: '3px solid var(--green)' }}>
       <div style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
-        Repartible del corte · {r.repartible.cantidadPedidos} pedidos cobrados
+        Repartible del corte
+      </div>
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--blue-bg, #E5EDF3)', color: 'var(--blue)', fontSize: 12, fontWeight: 500, padding: '4px 10px', borderRadius: 100, marginBottom: 10 }}>
+        📅 {r.repartible.cantidadPedidos} pedidos — contados por fecha de COBRO, no de pedido
       </div>
       <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '0 0 14px' }}>
-        Pedidos cobrados entre {r.desde} y {r.hasta}, menos gastos fijos. Cuenta por fecha de cobro.
+        Pedidos cuyo pago se completó (saldo $0) entre {r.desde} y {r.hasta}. No importa cuándo se hizo el pedido, solo cuándo terminó de pagarse.
       </p>
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
@@ -99,6 +102,11 @@ export default function ResumenMensualCard({
       {/* Nota aclaratoria: esto NO es plata aparte, ya vive dentro del Líquido */}
       <div style={{ marginTop: 14, padding: '10px 14px', background: 'var(--bg)', borderRadius: 4, fontSize: 12, color: 'var(--text-soft)', lineHeight: 1.5 }}>
         💡 Este dinero <strong style={{ color: 'var(--text)' }}>ya está dentro</strong> de tu Líquido (abajo en "Capital real") — no es plata aparte. Repartir significa <strong style={{ color: 'var(--text)' }}>sacarlo</strong> del negocio hacia el bolsillo de cada socio. Mientras no lo saquen, el capital del negocio no cambia.
+      </div>
+
+      {/* Advertencia: por qué este conteo NO va a coincidir con la gráfica de pedidos por día */}
+      <div style={{ marginTop: 8, padding: '10px 14px', background: 'var(--amber-bg, #FAF0E0)', borderRadius: 4, fontSize: 12, color: 'var(--text-soft)', lineHeight: 1.5 }}>
+        ⚠️ Si comparas este número con la gráfica de "Pedidos por día" más abajo, <strong style={{ color: 'var(--text)' }}>no van a coincidir</strong> — y está bien que no coincidan. Esta tarjeta cuenta por fecha de <strong style={{ color: 'var(--text)' }}>cobro</strong>; la gráfica cuenta por fecha de <strong style={{ color: 'var(--text)' }}>pedido</strong>. Un pedido de hace meses que recién se cobró este corte cuenta aquí, pero no ahí.
       </div>
 
       <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--text-soft)' }}>
