@@ -9,6 +9,7 @@ import { auth } from '@/lib/auth';
 import Navbar from '@/components/Navbar';
 import ResumenMensualCard from '@/components/ResumenMensualCard';
 import CapitalCard from '@/components/CapitalCard';
+import GananciaProyectadaCard from '@/components/GananciaProyectadaCard';
 import CostosPieChart from '@/components/CostosPieChart';
 import VentasTimelineChart from '@/components/VentasTimelineChart';
 
@@ -101,6 +102,11 @@ export default function FinanzasPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 16, marginBottom: 24 }}>
           <ResumenMensualCard fechaDesde={desde} fechaHasta={hasta} donacion={donacion} />
           <CapitalCard />
+        </div>
+
+        {/* Fila 1.5: Ganancia proyectada de lo que aún no cierra su ciclo */}
+        <div style={{ marginBottom: 24 }}>
+          <GananciaProyectadaCard />
         </div>
 
         {/* Fila 2: Line chart de crecimiento */}
