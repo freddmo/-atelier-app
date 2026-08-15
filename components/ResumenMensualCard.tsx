@@ -96,13 +96,18 @@ export default function ResumenMensualCard({
         {linea('Neto repartible', r.repartible.neto, '=', true)}
       </div>
 
+      {/* Nota aclaratoria: esto NO es plata aparte, ya vive dentro del Líquido */}
+      <div style={{ marginTop: 14, padding: '10px 14px', background: 'var(--bg)', borderRadius: 4, fontSize: 12, color: 'var(--text-soft)', lineHeight: 1.5 }}>
+        💡 Este dinero <strong style={{ color: 'var(--text)' }}>ya está dentro</strong> de tu Líquido (abajo en "Capital real") — no es plata aparte. Repartir significa <strong style={{ color: 'var(--text)' }}>sacarlo</strong> del negocio hacia el bolsillo de cada socio. Mientras no lo saquen, el capital del negocio no cambia.
+      </div>
+
       <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--text-soft)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
           <span>Ganancia de stock → ScrubMe (no se reparte)</span>
           <span className="tabular">{money(r.scrubme.gananciaStock)}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
-          <span>Total por cobrar (en la calle)</span>
+          <span>Saldo pendiente de todos los pedidos vivos (foto de hoy, no del corte)</span>
           <span className="tabular" style={{ color: 'var(--amber)' }}>{money(r.proyeccion.brecha)}</span>
         </div>
       </div>
