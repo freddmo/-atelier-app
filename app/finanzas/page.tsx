@@ -12,6 +12,7 @@ import CapitalCard from '@/components/CapitalCard';
 import GananciaProyectadaCard from '@/components/GananciaProyectadaCard';
 import CostosPieChart from '@/components/CostosPieChart';
 import VentasTimelineChart from '@/components/VentasTimelineChart';
+import VentasPorDiaChart from '@/components/VentasPorDiaChart';
 
 // Devuelve el corte actual: del 15 del mes pasado al 15 de este mes.
 // Si hoy es antes del 15, el corte va del 15 de hace 2 meses al 15 del mes pasado.
@@ -112,6 +113,11 @@ export default function FinanzasPage() {
         {/* Fila 2: Line chart de crecimiento */}
         <div style={{ marginBottom: 24 }}>
           <VentasTimelineChart meses={6} />
+        </div>
+
+        {/* Fila 2.5: Pedidos o venta por día, rango libre */}
+        <div style={{ marginBottom: 24 }}>
+          <VentasPorDiaChart />
         </div>
 
         {/* Fila 3: Pie de costos del corte */}
