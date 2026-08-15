@@ -22,6 +22,7 @@ function fmtFechaLarga(iso: string) {
 }
 
 type Metrica = 'pedidos' | 'venta';
+type TipoFiltro = 'pedido' | 'stock' | 'todo';
 
 // Tooltip propio — Recharts 3 tipa estricto el prop "formatter" de <Tooltip>,
 // así que usamos un componente de contenido propio en vez de esa prop.
@@ -45,6 +46,7 @@ export default function VentasPorDiaChart() {
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
   const [metrica, setMetrica] = useState<Metrica>('pedidos');
+  const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('pedido');
 
   useEffect(() => {
     // Rango por defecto: últimos 30 días. Se calcula SOLO en el navegador
@@ -78,6 +80,23 @@ export default function VentasPorDiaChart() {
 
     pedidos.forEach(p => {
       if (String(p.ESTATUS_ENVIO) === 'CANCELADO') return;
+
+      const notas = String(p.NOTAS || '').toUpperCase();
+      if (notas.indexOf('MARKETING') !== -1 || notas.indexOf('SORTEO') !== -1) return;
+
+      // Misma lógica que usa Reportes: solo cuenta si tiene factura (BRUTO)
+      // cargada, y es "stock" si CUALQUIER costo BRUTO viene de stock —
+      // no se usa la columna TIPO_DE_ORDEN, que no refleja esto igual.
+      const brutos = (p.costos || []).filter(c => String(c.TIPO_COSTO).toUpperCase().trim() === 'BRUTO');
+      if (brutos.length === 0) return; // sin factura cargada, Reportes tampoco lo cuenta
+
+      if (tipoFiltro !== 'todo') {
+        const esStock = brutos.some(c => String(c.ORIGEN || '').toUpperCase().indexOf('STOCK') !== -1);
+        const tipoReal = esStock ? 'STOCK' : 'PEDIDO';
+        if (tipoFiltro === 'pedido' && tipoReal === 'STOCK') return;
+        if (tipoFiltro === 'stock' && tipoReal !== 'STOCK') return;
+      }
+
       const f = String(p.F_ORDEN || '').slice(0, 10);
       if (!f || f < desde || f > hasta) return;
       if (!porDia[f]) porDia[f] = { fecha: f, pedidos: 0, venta: 0 };
@@ -86,7 +105,7 @@ export default function VentasPorDiaChart() {
     });
 
     return Object.values(porDia).sort((a, b) => a.fecha.localeCompare(b.fecha));
-  }, [pedidos, desde, hasta]);
+  }, [pedidos, desde, hasta, tipoFiltro]);
 
   if (cargando)
     return <div className="card" style={{ padding: 24, color: 'var(--text-faint)', fontSize: 14 }}>Cargando…</div>;
@@ -127,7 +146,7 @@ export default function VentasPorDiaChart() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 12, marginBottom: 16, alignItems: 'end' }}>
         <div>
           <label style={{ fontSize: 11, color: 'var(--text-soft)' }}>Desde</label>
           <input type="date" className="input" value={desde} onChange={e => setDesde(e.target.value)} style={{ marginTop: 4, width: '100%' }} />
@@ -135,6 +154,14 @@ export default function VentasPorDiaChart() {
         <div>
           <label style={{ fontSize: 11, color: 'var(--text-soft)' }}>Hasta</label>
           <input type="date" className="input" value={hasta} onChange={e => setHasta(e.target.value)} style={{ marginTop: 4, width: '100%' }} />
+        </div>
+        <div>
+          <label style={{ fontSize: 11, color: 'var(--text-soft)' }}>Tipo</label>
+          <select className="input" value={tipoFiltro} onChange={e => setTipoFiltro(e.target.value as TipoFiltro)} style={{ marginTop: 4 }}>
+            <option value="pedido">Solo pedidos</option>
+            <option value="stock">Solo stock</option>
+            <option value="todo">Todo</option>
+          </select>
         </div>
       </div>
 
