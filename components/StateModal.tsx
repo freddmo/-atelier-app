@@ -2,51 +2,41 @@
 
 import { useState, useEffect } from 'react';
 import { ESTADOS, Estado } from '@/lib/types';
-import { api, SetEmpaque, Regalo } from '@/lib/api';
+import { api, SetEmpaque } from '@/lib/api';
+
+const PIN_ASUMIDO = 1.10; // mismo valor asumido que usa el backend/reportes
+
+function round2Local(n: number): number {
+  return Math.round(n * 100) / 100;
+}
 
 type Props = {
   ordenId: string;
   estadoActual: Estado;
   onClose: () => void;
-  onChange: (nuevo: Estado, tipoEmpaque?: string, pines?: { regaloid: string; cantidad: number }[], cantidadCajas?: number) => Promise<void>;
+  onChange: (nuevo: Estado, tipoEmpaque?: string, pinCantidad?: number, pinNota?: string, cantidadCajas?: number) => Promise<void>;
 };
 
 export default function StateModal({ ordenId, estadoActual, onClose, onChange }: Props) {
   const currentIdx = ESTADOS.indexOf(estadoActual);
   const [setsEmpaque, setSetsEmpaque] = useState<SetEmpaque[]>([]);
-  const [regalos, setRegalos] = useState<Regalo[]>([]);
   const [empaqueSeleccionado, setEmpaqueSeleccionado] = useState('');
   const [cantidadCajas, setCantidadCajas] = useState(1);
   const [paso, setPaso] = useState<'estados' | 'empaque' | 'pines'>('estados');
   const [estadoPendiente, setEstadoPendiente] = useState<Estado | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const [pinPrincipal, setPinPrincipal] = useState('');
-  const [pinExtra, setPinExtra] = useState('');
-  const [agregarExtra, setAgregarExtra] = useState(false);
+  const [pinCantidad, setPinCantidad] = useState(1);
+  const [pinNota, setPinNota] = useState('');
 
   useEffect(() => {
-    Promise.all([api.getSetEmpaque(), api.getRegalos()])
-      .then(([sets, regs]) => {
+    api.getSetEmpaque()
+      .then((sets) => {
         setSetsEmpaque(sets);
-        setRegalos(regs);
         if (sets.length > 0) setEmpaqueSeleccionado(sets[0].SET_ID);
-        const conStock = regs.filter(r => Number(r.STOCK) > 0);
-        if (conStock.length > 0) setPinPrincipal(conStock[0].REGALO_ID);
       })
       .catch(() => {});
   }, []);
-
-  // Pines con stock disponible
-  const pinesConStock = regalos.filter(r => Number(r.STOCK) > 0);
-
-  // Para el pin EXTRA: excluye el principal si ya consumió todo su stock (stock 1)
-  const principalObj = regalos.find(r => r.REGALO_ID === pinPrincipal);
-  const pinesParaExtra = pinesConStock.filter(r => {
-    if (r.REGALO_ID !== pinPrincipal) return true;
-    // Mismo pin que el principal: solo disponible si tiene stock >= 2
-    return Number(r.STOCK) >= 2;
-  });
 
   async function handleClick(s: Estado, isCurrent: boolean, isPast: boolean) {
     if (isCurrent) return;
@@ -71,17 +61,8 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
     if (!estadoPendiente) return;
     setLoading(true);
     try {
-      const pines: { regaloid: string; cantidad: number }[] = [];
-      if (pinPrincipal && pinPrincipal !== '__none__' && principalObj) {
-        pines.push({ regaloid: pinPrincipal, cantidad: 1 });
-      }
-      if (agregarExtra && pinExtra) {
-        const existente = pines.find(p => p.regaloid === pinExtra);
-        if (existente) existente.cantidad += 1;
-        else pines.push({ regaloid: pinExtra, cantidad: 1 });
-      }
       const empaqueFinal = empaqueSeleccionado === '__none__' ? '' : empaqueSeleccionado;
-      await onChange(estadoPendiente, empaqueFinal, pines, cantidadCajas);
+      await onChange(estadoPendiente, empaqueFinal, pinCantidad, pinNota.trim(), cantidadCajas);
     } finally {
       setLoading(false);
     }
@@ -165,101 +146,51 @@ export default function StateModal({ ordenId, estadoActual, onClose, onChange }:
 
   // ── Paso: pines ──
   if (paso === 'pines') {
-    const pinPrincipalObj = regalos.find(r => r.REGALO_ID === pinPrincipal);
-    const pinExtraObj     = regalos.find(r => r.REGALO_ID === pinExtra);
-    const costoPines = (pinPrincipalObj ? pinPrincipalObj.COSTO_UNITARIO : 0) +
-                       (agregarExtra && pinExtraObj ? pinExtraObj.COSTO_UNITARIO : 0);
+    const costoPines = round2Local(PIN_ASUMIDO * pinCantidad);
 
     return (
       <div className="modal-bg" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
         <div className="modal-content" style={{ padding: 28, maxWidth: 420 }}>
           <div style={{ marginBottom: 20 }}>
             <span className="number-tag">{ordenId}</span>
-            <h2 className="display" style={{ fontSize: 24, fontWeight: 400, margin: '6px 0 0' }}>Seleccionar pin</h2>
+            <h2 className="display" style={{ fontSize: 24, fontWeight: 400, margin: '6px 0 0' }}>Pin de regalo</h2>
             <p style={{ color: 'var(--text-soft)', fontSize: 13, margin: '6px 0 0' }}>Paso 2 de 2</p>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 20 }}>
-            <div>
-              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Pin principal (×1)</label>
-              <select
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', background: 'var(--bg)', borderRadius: 4, marginBottom: 16 }}>
+            <span style={{ fontSize: 13 }}>¿Cuántos pines?</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button className="btn" onClick={() => setPinCantidad(Math.max(0, pinCantidad - 1))} style={{ padding: '4px 12px', fontSize: 16 }}>−</button>
+              <span className="display tabular" style={{ fontSize: 18, minWidth: 24, textAlign: 'center' }}>{pinCantidad}</span>
+              <button className="btn" onClick={() => setPinCantidad(pinCantidad + 1)} style={{ padding: '4px 12px', fontSize: 16 }}>+</button>
+            </div>
+          </div>
+
+          {pinCantidad > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>¿Cuál pin se puso?</label>
+              <input
                 className="input"
-                value={pinPrincipal}
-                onChange={(e) => {
-                  setPinPrincipal(e.target.value);
-                  // Si el extra quedó igual al nuevo principal y no hay stock para repetir, lo limpio
-                  if (pinExtra === e.target.value) {
-                    const r = regalos.find(x => x.REGALO_ID === e.target.value);
-                    if (r && Number(r.STOCK) < 2) setPinExtra('');
-                  }
-                }}
+                value={pinNota}
+                onChange={(e) => setPinNota(e.target.value)}
+                placeholder="Ej: Diente con Escudo"
                 style={{ marginTop: 4 }}
-              >
-                <option value="__none__">— Sin pin —</option>
-                {pinesConStock.map(r => (
-                  <option key={r.REGALO_ID} value={r.REGALO_ID}>
-                    {r.NOMBRE} · stock: {r.STOCK}
-                  </option>
-                ))}
-              </select>
+                autoFocus
+              />
+              <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 6 }}>
+                No descuenta stock automáticamente — ajusta el inventario de pines a mano en Materiales.
+              </div>
             </div>
+          )}
 
-            {pinPrincipal !== '__none__' && (
-            <div>
-              <div
-                onClick={() => {
-                  const next = !agregarExtra;
-                  setAgregarExtra(next);
-                  if (next && !pinExtra && pinesParaExtra.length > 0) setPinExtra(pinesParaExtra[0].REGALO_ID);
-                }}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: agregarExtra ? 8 : 0 }}
-              >
-                <div style={{
-                  width: 18, height: 18, borderRadius: 3, border: '1px solid var(--border)',
-                  background: agregarExtra ? 'var(--text)' : 'transparent',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
-                }}>
-                  {agregarExtra && <span style={{ color: 'var(--surface)', fontSize: 11, lineHeight: 1 }}>✓</span>}
-                </div>
-                <span style={{ fontSize: 13 }}>Agregar pin extra (×1)</span>
+          {pinCantidad > 0 && (
+            <div style={{ background: 'var(--bg)', padding: '12px 14px', borderRadius: 4, marginBottom: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 500 }}>
+                <span>{pinNota || 'Pin'} ×{pinCantidad}</span>
+                <span className="tabular">${costoPines.toFixed(2)}</span>
               </div>
-              {agregarExtra && (
-                <select
-                  className="input"
-                  value={pinExtra}
-                  onChange={(e) => setPinExtra(e.target.value)}
-                >
-                  {pinesParaExtra.length === 0 && <option value="">(no hay otro pin disponible)</option>}
-                  {pinesParaExtra.map(r => (
-                    <option key={r.REGALO_ID} value={r.REGALO_ID}>
-                      {r.NOMBRE} · stock: {r.STOCK}
-                    </option>
-                  ))}
-                </select>
-              )}
             </div>
-            )}
-          </div>
-
-          <div style={{ background: 'var(--bg)', padding: '12px 14px', borderRadius: 4, marginBottom: 16 }}>
-            <div style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase', marginBottom: 8 }}>Resumen</div>
-            {pinPrincipalObj && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '3px 0' }}>
-                <span style={{ color: 'var(--text-soft)' }}>{pinPrincipalObj.NOMBRE} ×1</span>
-                <span className="tabular">${pinPrincipalObj.COSTO_UNITARIO.toFixed(2)}</span>
-              </div>
-            )}
-            {agregarExtra && pinExtraObj && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '3px 0' }}>
-                <span style={{ color: 'var(--text-soft)' }}>{pinExtraObj.NOMBRE} ×1 (extra)</span>
-                <span className="tabular">${pinExtraObj.COSTO_UNITARIO.toFixed(2)}</span>
-              </div>
-            )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 500, paddingTop: 8, marginTop: 4, borderTop: '1px solid var(--border)' }}>
-              <span>Total pines</span>
-              <span className="tabular">${costoPines.toFixed(2)}</span>
-            </div>
-          </div>
+          )}
 
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="btn" style={{ flex: 1, justifyContent: 'center' }} onClick={() => setPaso('empaque')} disabled={loading}>← Volver</button>
