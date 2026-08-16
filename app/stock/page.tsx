@@ -389,12 +389,72 @@ function FilaMaterial({
   );
 }
 
+// ===== FOTO TEMPORAL (solo en memoria, nunca se guarda) =====
+// Al elegir un archivo, se crea una URL local (URL.createObjectURL) que solo
+// vive en esta pestaña del navegador. Si recargas la página, se pierde.
+function FotoUpload({
+  id, url, onChange,
+}: {
+  id: string;
+  url: string | undefined;
+  onChange: (id: string, url: string) => void;
+}) {
+  function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    onChange(id, URL.createObjectURL(file));
+  }
+
+  if (url) {
+    return (
+      <div style={{ position: 'relative', flexShrink: 0 }}>
+        <img
+          src={url}
+          alt=""
+          style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }}
+        />
+        <label
+          className="print-hide"
+          title="Cambiar foto"
+          style={{
+            position: 'absolute', bottom: -6, right: -6, width: 22, height: 22, borderRadius: '50%',
+            background: 'var(--surface)', border: '1px solid var(--border)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', fontSize: 11, cursor: 'pointer',
+          }}
+        >
+          ✎
+          <input type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
+        </label>
+      </div>
+    );
+  }
+
+  return (
+    <label
+      className="print-hide"
+      title="Subir foto (solo para esta sesión, no se guarda)"
+      style={{
+        width: 96, height: 96, borderRadius: 6, flexShrink: 0, cursor: 'pointer',
+        border: '1.5px dashed var(--border)', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', gap: 4, color: 'var(--text-faint)',
+      }}
+    >
+      <span style={{ fontSize: 20 }}>📷</span>
+      <span style={{ fontSize: 10 }}>Foto</span>
+      <input type="file" accept="image/*" onChange={handleFile} style={{ display: 'none' }} />
+    </label>
+  );
+}
+
 export default function StockPage() {
   const router = useRouter();
   const [lotes, setLotes] = useState<LoteStock[]>([]);
   const [enCamino, setEnCamino] = useState<LoteEnCamino[]>([]);
   const [couriers, setCouriers] = useState<Courier[]>([]);
   const [combos, setCombos] = useState<Combo[]>([]);
+  // Fotos temporales por tarjeta (clave = LOTE_ID o COMBO_ID) — solo viven en
+  // memoria del navegador, nunca se guardan. Se pierden si recargas la página.
+  const [fotos, setFotos] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
@@ -598,6 +658,10 @@ export default function StockPage() {
     setDespacharId(loteId);
     setDespFecha(todayISO);
     setDespCourier(couriersActivos.length > 0 ? couriersActivos[0].COURIER : '');
+  }
+
+  function setFoto(id: string, url: string) {
+    setFotos(prev => ({ ...prev, [id]: url }));
   }
 
   function confirmDespachar(loteId: string) {
@@ -894,7 +958,7 @@ export default function StockPage() {
                     <h3 style={{ margin: '0 0 12px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
                       Conjuntos · <span className="tabular">{combos.length}</span>
                     </h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 12, marginBottom: 28 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 28 }}>
                       {combos.map(c => {
                         const eta = fmtEta(c.eta);
                         const hexSup = c.superior.COLOR_HEX || '';
@@ -911,6 +975,11 @@ export default function StockPage() {
                             >
                               {deletingCombo === c.COMBO_ID ? '…' : '✕'}
                             </button>
+
+                            {/* Foto (izquierda) + info (derecha) */}
+                            <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                              <FotoUpload id={c.COMBO_ID} url={fotos[c.COMBO_ID]} onChange={setFoto} />
+                              <div style={{ flex: 1, minWidth: 0 }}>
 
                             {/* Cabecera con los colores del conjunto */}
                             <div style={{
@@ -1009,6 +1078,8 @@ export default function StockPage() {
                                 </div>
                               );
                             })}
+                              </div>
+                            </div>
                           </div>
                         );
                       })}
@@ -1025,31 +1096,35 @@ export default function StockPage() {
                     No hay piezas sueltas disponibles.
                   </div>
                 ) : (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12, marginBottom: 28 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 28 }}>
                     {lotesLibres.map(l => (
-                      <div key={l.LOTE_ID} className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', borderColor: !l.tieneCourier ? 'var(--amber)' : undefined }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                          <span style={{ fontSize: 10, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{l.TIPO_PRENDA || 'Pieza'}</span>
-                          <span className="tabular" style={{ fontSize: 13, fontWeight: 500 }}>
-                            {l.CANT_DISPONIBLE > 1 ? `×${l.CANT_DISPONIBLE}` : ''}
-                            {!l.tieneCourier && <span title="Sin courier cargado todavía" style={{ marginLeft: 6, color: 'var(--amber)' }}>⚠</span>}
-                          </span>
-                        </div>
-                        <div className="display" style={{ fontSize: 15, marginBottom: 3 }}>{l.NOMBRE_PRODUCTO}</div>
-                        <div style={{ fontSize: 12, color: 'var(--text-soft)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <ColorSwatch color={l.COLOR} hex={l.COLOR_HEX || ''} isAdmin={isAdmin} onSave={handleSetColor} />
-                          <span><span className="mono">{l.TALLA}</span> · {l.LONGITUD} · {l.COLOR}</span>
-                        </div>
-                        <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--text-faint)' }}>
-                          <span>{fmtDate(l.FECHA_ENTRADA)}</span>
-                          {isAdmin && <span className="mono print-hide">{l.LOTE_ID}</span>}
-                        </div>
-                        {isAdmin && (
-                          <div className="tabular print-hide" style={{ fontSize: 12, color: 'var(--text-soft)', marginTop: 4, textAlign: 'right' }}>
-                            {fmtMoney(l.COSTO_UNITARIO)}
+                      <div key={l.LOTE_ID} className="card" style={{ padding: 16, display: 'flex', gap: 14, alignItems: 'flex-start', borderColor: !l.tieneCourier ? 'var(--amber)' : undefined }}>
+                        <FotoUpload id={l.LOTE_ID} url={fotos[l.LOTE_ID]} onChange={setFoto} />
+                        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                            <span style={{ fontSize: 10, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{l.TIPO_PRENDA || 'Pieza'}</span>
+                            <span className="tabular" style={{ fontSize: 13, fontWeight: 500 }}>
+                              {l.CANT_DISPONIBLE > 1 ? `×${l.CANT_DISPONIBLE}` : ''}
+                              {!l.tieneCourier && <span title="Sin courier cargado todavía" style={{ marginLeft: 6, color: 'var(--amber)' }}>⚠</span>}
+                            </span>
                           </div>
-                        )}
+                          <div className="display" style={{ fontSize: 15, marginBottom: 3 }}>{l.NOMBRE_PRODUCTO}</div>
+                          <div style={{ fontSize: 12, color: 'var(--text-soft)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <ColorSwatch color={l.COLOR} hex={l.COLOR_HEX || ''} isAdmin={isAdmin} onSave={handleSetColor} />
+                            <span><span className="mono">{l.TALLA}</span> · {l.LONGITUD} · {l.COLOR}</span>
+                          </div>
+                          <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--text-faint)' }}>
+                            <span>{fmtDate(l.FECHA_ENTRADA)}</span>
+                            {isAdmin && <span className="mono print-hide">{l.LOTE_ID}</span>}
+                          </div>
+                          {isAdmin && (
+                            <div className="tabular print-hide" style={{ fontSize: 12, color: 'var(--text-soft)', marginTop: 4, textAlign: 'right' }}>
+                              {fmtMoney(l.COSTO_UNITARIO)}
+                            </div>
+                          )}
+                        </div>
                       </div>
+
                     ))}
                   </div>
                 )}
@@ -1063,13 +1138,15 @@ export default function StockPage() {
                     Nada suelto en camino por ahora.
                   </div>
                 ) : (
-                  <div className="print-hide" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+                  <div className="print-hide" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
                     {caminoLibres.map(l => {
                       const estado = String(l.ESTADO_VIAJE || '').toUpperCase();
                       const eta = fmtEta(l.eta);
                       const enDespacho = despacharId === l.LOTE_ID;
                       return (
-                        <div key={l.LOTE_ID} className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', borderColor: estadoColor(estado) }}>
+                        <div key={l.LOTE_ID} className="card" style={{ padding: 16, display: 'flex', gap: 14, alignItems: 'flex-start', borderColor: estadoColor(estado) }}>
+                          <FotoUpload id={l.LOTE_ID} url={fotos[l.LOTE_ID]} onChange={setFoto} />
+                          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: estadoColor(estado), textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
                             <span style={{ width: 8, height: 8, borderRadius: '50%', background: estadoColor(estado) }} />
                             🚚 {l.ESTADO_VIAJE}
@@ -1135,6 +1212,7 @@ export default function StockPage() {
                               )}
                             </div>
                           )}
+                          </div>
                         </div>
                       );
                     })}
