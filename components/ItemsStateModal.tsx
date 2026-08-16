@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ESTADOS, Estado } from '@/lib/types';
-import { api, SetEmpaque, Regalo, ApiError } from '@/lib/api';
+import { api, SetEmpaque, ApiError } from '@/lib/api';
 import { auth } from '@/lib/auth';
 
 type ItemLite = {
@@ -33,14 +33,13 @@ export default function ItemsStateModal({ ordenId, items, estadoCabecera, isAdmi
   const [target, setTarget] = useState<Estado | ''>('');
   const [setsEmpaque, setSetsEmpaque] = useState<SetEmpaque[]>([]);
   const [empaque, setEmpaque] = useState('');
-  const [regalos, setRegalos] = useState<Regalo[]>([]);
-  const [pinSel, setPinSel] = useState('');
+  const [pinCantidad, setPinCantidad] = useState(0);
+  const [pinNota, setPinNota] = useState('');
   const [costoDelivery, setCostoDelivery] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     api.getSetEmpaque().then(setSetsEmpaque).catch(() => {});
-    api.getRegalos().then(setRegalos).catch(() => {});
   }, []);
 
   function toggle(row: number) {
@@ -70,10 +69,13 @@ export default function ItemsStateModal({ ordenId, items, estadoCabecera, isAdmi
     const itemRows = Array.from(selected);
     const opts: {
       forzar?: boolean; tipoEmpaque?: string; costoDelivery?: number;
-      pines?: { regaloid: string; cantidad: number }[];
+      pinCantidad?: number; pinNota?: string;
     } = {};
     if (target === 'LISTO PARA ENVIAR') opts.tipoEmpaque = empaque;
-    if (target === 'LISTO PARA ENVIAR' && pinSel) opts.pines = [{ regaloid: pinSel, cantidad: 1 }];
+    if (target === 'LISTO PARA ENVIAR' && pinCantidad > 0) {
+      opts.pinCantidad = pinCantidad;
+      opts.pinNota = pinNota.trim();
+    }
     if (target === 'ENTREGADO' && Number(costoDelivery) > 0) opts.costoDelivery = Number(costoDelivery);
 
     setSaving(true);
@@ -166,15 +168,21 @@ export default function ItemsStateModal({ ordenId, items, estadoCabecera, isAdmi
               </select>
             </div>
             <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Pin / regalo (opcional)</label>
-              <select className="input" value={pinSel} onChange={(e) => setPinSel(e.target.value)} style={{ marginTop: 4 }}>
-                <option value="">— Sin pin —</option>
-                {regalos.filter(r => Number(r.STOCK) > 0).map(r => (
-                  <option key={r.REGALO_ID} value={r.REGALO_ID}>
-                    {r.NOMBRE}{r.INDUSTRIA_SUGERIDA ? ` · ${r.INDUSTRIA_SUGERIDA}` : ''} (stock {r.STOCK})
-                  </option>
-                ))}
-              </select>
+              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>¿Cuántos pines?</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
+                <button type="button" className="btn" onClick={() => setPinCantidad(Math.max(0, pinCantidad - 1))} style={{ padding: '4px 12px', fontSize: 16 }}>−</button>
+                <span className="display tabular" style={{ fontSize: 16, minWidth: 20, textAlign: 'center' }}>{pinCantidad}</span>
+                <button type="button" className="btn" onClick={() => setPinCantidad(pinCantidad + 1)} style={{ padding: '4px 12px', fontSize: 16 }}>+</button>
+              </div>
+              {pinCantidad > 0 && (
+                <input
+                  className="input"
+                  value={pinNota}
+                  onChange={(e) => setPinNota(e.target.value)}
+                  placeholder="¿Cuál pin se puso? Ej: Diente con Escudo"
+                  style={{ marginTop: 8 }}
+                />
+              )}
             </div>
           </>
         )}
