@@ -365,7 +365,7 @@ export const api = {
     itemRows: number[],
     nuevoEstado: string,
     usuario: string,
-    opts: { forzar?: boolean; tipoEmpaque?: string; cantidadCajas?: number; costoDelivery?: number; pines?: { regaloid: string; cantidad: number }[] } = {}
+    opts: { forzar?: boolean; tipoEmpaque?: string; cantidadCajas?: number; costoDelivery?: number; pinCantidad?: number; pinNota?: string } = {}
   ) {
     const params: Record<string, string> = {
       action: 'cambiarEstadoItems',
@@ -378,7 +378,8 @@ export const api = {
     if (opts.tipoEmpaque) params.tipoEmpaque = opts.tipoEmpaque;
     if (opts.cantidadCajas && opts.cantidadCajas > 1) params.cantidadCajas = String(opts.cantidadCajas);
     if (opts.costoDelivery && opts.costoDelivery > 0) params.costoDelivery = String(opts.costoDelivery);
-    if (opts.pines && opts.pines.length > 0) params.pines = JSON.stringify(opts.pines);
+    if (opts.pinCantidad && opts.pinCantidad > 0) params.pinCantidad = String(opts.pinCantidad);
+    if (opts.pinNota) params.pinNota = opts.pinNota;
     return apiCall(params);
   },
   async getSetEmpaque(): Promise<SetEmpaque[]> {
