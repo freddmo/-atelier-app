@@ -455,6 +455,7 @@ export default function StockPage() {
   // Fotos temporales por tarjeta (clave = LOTE_ID o COMBO_ID) — solo viven en
   // memoria del navegador, nunca se guardan. Se pierden si recargas la página.
   const [fotos, setFotos] = useState<Record<string, string>>({});
+  const [borrarLoteId, setBorrarLoteId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
@@ -662,6 +663,29 @@ export default function StockPage() {
 
   function setFoto(id: string, url: string) {
     setFotos(prev => ({ ...prev, [id]: url }));
+  }
+
+  async function handleBorrarLote(loteId: string, nombre: string) {
+    const user = auth.getUser();
+    if (!user) return;
+    const ok = confirm(
+      `¿Borrar "${nombre}" (${loteId}) del inventario?\n\n` +
+      `Esto también revierte (borra) el costo de compra + courier registrado para este lote — ` +
+      `como si esa plata nunca se hubiera gastado en los reportes.\n\n` +
+      `⚠️ Esto NO mete plata a tu cuenta del banco automáticamente — si de verdad te devolvieron ` +
+      `el dinero, regístralo aparte en TablaSaldos.\n\n¿Continuar?`
+    );
+    if (!ok) return;
+    setBorrarLoteId(loteId);
+    try {
+      const res = await api.borrarLoteStock(loteId, user.usuario);
+      alert(`✅ Borrado — se revirtieron $${res.montoRevertido.toFixed(2)} de costos`);
+      load();
+    } catch (err) {
+      alert('Error al borrar: ' + (err instanceof Error ? err.message : 'desconocido'));
+    } finally {
+      setBorrarLoteId(null);
+    }
   }
 
   function confirmDespachar(loteId: string) {
@@ -1123,6 +1147,22 @@ export default function StockPage() {
                             </div>
                           )}
                         </div>
+                        {isAdmin && (
+                          <button
+                            className="print-hide"
+                            onClick={() => handleBorrarLote(l.LOTE_ID, l.NOMBRE_PRODUCTO)}
+                            disabled={borrarLoteId === l.LOTE_ID}
+                            title="Borrar del inventario y revertir su costo (devolución)"
+                            style={{
+                              flexShrink: 0, width: 26, height: 26, borderRadius: '50%',
+                              border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-faint)',
+                              cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13,
+                              opacity: borrarLoteId === l.LOTE_ID ? 0.5 : 1,
+                            }}
+                          >
+                            {borrarLoteId === l.LOTE_ID ? '…' : '✕'}
+                          </button>
+                        )}
                       </div>
 
                     ))}
