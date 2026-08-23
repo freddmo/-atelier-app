@@ -461,6 +461,13 @@ export const api = {
   async getStockDisponible(): Promise<LoteStock[]> {
     return apiCall<LoteStock[]>({ action: 'getStockDisponible' });
   },
+  async borrarLoteStock(loteId: string, usuario: string) {
+    return apiCall<{ loteId: string; nombre: string; montoRevertido: number; costosRevertidos: number }>({
+      action: 'borrarLoteStock',
+      loteId,
+      usuario,
+    });
+  },
   async getLotesEnCamino(): Promise<LoteEnCamino[]> {
     return apiCall<LoteEnCamino[]>({ action: 'getLotesEnCamino' });
   },
