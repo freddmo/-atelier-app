@@ -10,6 +10,7 @@ import StateModal from '@/components/StateModal';
 import PaymentModal from '@/components/PaymentModal';
 import ItemsStateModal from '@/components/ItemsStateModal';
 import CambioItemModal from '@/components/CambioItemModal';
+import CancelarItemModal from '@/components/CancelarItemModal';
 import PerdidaTransitoModal from '@/components/PerdidaTransitoModal';
 
 function fmtMoney(n: number) {
@@ -81,6 +82,7 @@ export default function PedidoDetallePage() {
   const [isBodega, setIsBodega] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
   const [cambioItem, setCambioItem] = useState<any | null>(null);
+  const [cancelarItem, setCancelarItem] = useState<any | null>(null);
   const [showPerdida, setShowPerdida] = useState(false);
   const [showDescuento, setShowDescuento] = useState(false);
   const [descMonto, setDescMonto] = useState('');
@@ -648,6 +650,16 @@ export default function PedidoDetallePage() {
                           ⇄ Cambiar por error
                         </button>
                       )}
+                      {puedeMover && !cancelado && !itemEntregado(item) && (
+                        <button
+                          onClick={() => setCancelarItem(item)}
+                          className="btn"
+                          style={{ padding: '2px 8px', fontSize: 10, color: 'var(--rose)' }}
+                          title="Cancelar este ítem (se devuelve a FIGS o pasa a stock, sin re-pedir nada)"
+                        >
+                          🗑 Cancelar ítem
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div style={{ fontSize: 13, color: 'var(--text-soft)' }}>×{item.CANTIDAD}</div>
@@ -737,6 +749,20 @@ export default function PedidoDetallePage() {
           onClose={() => setCambioItem(null)}
           onDone={(msg) => {
             setCambioItem(null);
+            setToast(msg);
+            setTimeout(() => setToast(''), 3500);
+            loadPedido();
+          }}
+        />
+      )}
+
+      {cancelarItem && (
+        <CancelarItemModal
+          ordenId={pedido.ORDEN_ID}
+          item={cancelarItem}
+          onClose={() => setCancelarItem(null)}
+          onDone={(msg) => {
+            setCancelarItem(null);
             setToast(msg);
             setTimeout(() => setToast(''), 3500);
             loadPedido();
