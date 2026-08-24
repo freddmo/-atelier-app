@@ -563,6 +563,19 @@ export const api = {
       usuario,
     });
   },
+  async cancelarItemPedido(
+    params: { ordenId: string; itemRow: number; destino: 'FIGS' | 'STOCK'; costoStock?: number },
+    usuario: string
+  ) {
+    return apiCall<{ itemRow: number; destino: string; loteId: string | null; costoRevertido: number }>({
+      action: 'cancelarItemPedido',
+      ordenId: params.ordenId,
+      itemRow: String(params.itemRow),
+      destino: params.destino,
+      costoStock: params.costoStock !== undefined ? String(params.costoStock) : '',
+      usuario,
+    });
+  },
   async getGananciaPorTipo(fechaInicio?: string, fechaFin?: string) {
     const params: Record<string, string> = { action: 'getGananciaPorTipo' };
     if (fechaInicio) params.fechaInicio = fechaInicio;
