@@ -468,6 +468,14 @@ export const api = {
       usuario,
     });
   },
+  async setCourier(ordenId: string, courier: string, usuario: string) {
+    return apiCall<{ ordenId: string; courier: string }>({
+      action: 'setCourier',
+      ordenId,
+      courier,
+      usuario,
+    });
+  },
   async getLotesEnCamino(): Promise<LoteEnCamino[]> {
     return apiCall<LoteEnCamino[]>({ action: 'getLotesEnCamino' });
   },
