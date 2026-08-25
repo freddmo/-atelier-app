@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Pedido } from '@/lib/types';
+import { api } from '@/lib/api';
+import { auth } from '@/lib/auth';
 
 type Props = {
   pedido: Pedido;
@@ -49,7 +51,7 @@ function fmtDateShort(d: string) {
 
 function generarMensajeCobro(pedido: Pedido): string {
   const nombre = pedido.CLIENTE_NOMBRE || pedido.NOMBRE || '';
-  const saldo = pedido.totales.saldo;
+  const saldo = pedido.totales?.saldo ?? 0;
   let mensaje = `💕 ¡Hola ${nombre}! 💕\n\n`;
   mensaje += `Te escribimos para recordarte el saldo pendiente de tu pedido:\n`;
   mensaje += `💰 Saldo pendiente: *$${saldo.toFixed(2)}*\n\n`;
@@ -62,7 +64,7 @@ function generarMensajeCobro(pedido: Pedido): string {
 
 // Mismo mensaje que en el detalle del pedido — horarios de envío + saldo si aplica.
 function generarMensajeListoParaEnviar(pedido: Pedido): string {
-  const saldo = pedido.totales.saldo;
+  const saldo = pedido.totales?.saldo ?? 0;
   let mensaje = `💕 *¡Tu FIGS te está esperando!* 💕\n\n`;
   mensaje += `🚚 Nuestros envíos (delivery o Servientrega) se realizan en los siguientes horarios:\n`;
   mensaje += `🗓️ *Martes y Jueves*\n`;
@@ -120,6 +122,49 @@ function str(v: unknown): string {
 }
 
 // Bloque de info del cliente (dirección, teléfono, cédula/RUC, industria) + chips de TODOS los ítems
+// Campo libre de courier — solo informativo, guarda al salir del campo o
+// al presionar Enter. No afecta costos ni lógica de envío.
+function CourierInput({ ordenId, valorInicial }: { ordenId: string; valorInicial: string }) {
+  const [valor, setValor] = useState(valorInicial);
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => { setValor(valorInicial); }, [valorInicial]);
+
+  async function guardar() {
+    if (valor === valorInicial) return;
+    const user = auth.getUser();
+    if (!user) return;
+    setGuardando(true);
+    try {
+      await api.setCourier(ordenId, valor.trim(), user.usuario);
+    } catch (err) {
+      alert('Error al guardar courier: ' + (err instanceof Error ? err.message : 'desconocido'));
+      setValor(valorInicial);
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }} onClick={(e) => e.stopPropagation()}>
+      <span style={{ color: 'var(--text-faint)' }}>🚚</span>
+      <input
+        value={valor}
+        onChange={(e) => setValor(e.target.value)}
+        onBlur={guardar}
+        onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+        placeholder="Courier…"
+        disabled={guardando}
+        style={{
+          border: 'none', borderBottom: '1px dashed var(--border)', background: 'transparent',
+          fontSize: 12, color: 'var(--text-soft)', padding: '2px 0', width: 90,
+          outline: 'none', opacity: guardando ? 0.5 : 1,
+        }}
+      />
+    </span>
+  );
+}
+
 function CardExtra({ pedido }: { pedido: Pedido }) {
   const items = (pedido.items || []).filter(
     it => String((it as any).ESTATUS_ITEM || '').toUpperCase().trim() !== 'CANCELADO'
@@ -164,6 +209,10 @@ function CardExtra({ pedido }: { pedido: Pedido }) {
         </div>
       )}
 
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: 12 }}>
+        <CourierInput ordenId={pedido.ORDEN_ID} valorInicial={str(pedido.COURIER)} />
+      </div>
+
       {items.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {items.map((it, i) => (
@@ -185,7 +234,7 @@ export default function OrderCard({ pedido, showMoney = false }: Props) {
   useEffect(() => {
     setAtraso(calcularDiasAtraso(pedido));
   }, [pedido.ESTATUS_ENVIO, pedido.F_ENTREGA_EST]);
-  const saldo = pedido.totales.saldo;
+  const saldo = pedido.totales?.saldo ?? 0;
   const hasRegalo = !!pedido.REGALO_ENVIADO && String(pedido.REGALO_ENVIADO).trim() !== '';
   const listoParaEnviar = pedido.ESTATUS_ENVIO === 'LISTO PARA ENVIAR';
 
