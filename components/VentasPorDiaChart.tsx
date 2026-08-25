@@ -1,5 +1,5 @@
 // components/VentasPorDiaChart.tsx
-// Barchart diario: cantidad de pedidos o venta ($), en un rango de fechas libre.
+// Barchart diario: cantidad de pedidos, en un rango de fechas libre.
 // Reusa api.getPedidos() (ya se usa en toda la app) y agrupa por día en el cliente.
 
 'use client';
@@ -8,9 +8,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { api } from '@/lib/api';
 import { Pedido } from '@/lib/types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
-const money = (n: number) =>
-  '$' + n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
 function fmtFechaCorta(iso: string) {
   if (!iso) return '';
@@ -21,20 +18,21 @@ function fmtFechaLarga(iso: string) {
   return new Date(iso + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
 }
 
-type Metrica = 'pedidos' | 'venta';
-type TipoFiltro = 'pedido' | 'stock' | 'todo';
+// 'pedido' = todos los pedidos hechos en el rango, sin importar su estado actual
+// 'activo' = de esos mismos, solo los que HOY todavía no se entregaron ni cancelaron
+// 'stock'  = ventas de stock
+// 'todo'   = pedido + stock juntos, sin importar estado
+type TipoFiltro = 'pedido' | 'activo' | 'stock' | 'todo';
 
 // Tooltip propio — Recharts 3 tipa estricto el prop "formatter" de <Tooltip>,
 // así que usamos un componente de contenido propio en vez de esa prop.
-function CustomTooltip({ active, payload, label, metrica }: any) {
+function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload || !payload.length) return null;
   const valor = payload[0].value as number;
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 4, padding: '8px 12px', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
       <div style={{ color: 'var(--text-soft)', marginBottom: 2 }}>{fmtFechaLarga(label)}</div>
-      <div style={{ fontWeight: 600 }}>
-        {metrica === 'pedidos' ? `${valor} pedido${valor !== 1 ? 's' : ''}` : money(valor)}
-      </div>
+      <div style={{ fontWeight: 600 }}>{valor} pedido{valor !== 1 ? 's' : ''}</div>
     </div>
   );
 }
@@ -45,7 +43,6 @@ export default function VentasPorDiaChart() {
   const [error, setError] = useState('');
   const [desde, setDesde] = useState('');
   const [hasta, setHasta] = useState('');
-  const [metrica, setMetrica] = useState<Metrica>('pedidos');
   const [tipoFiltro, setTipoFiltro] = useState<TipoFiltro>('pedido');
 
   useEffect(() => {
@@ -66,7 +63,7 @@ export default function VentasPorDiaChart() {
 
   const datos = useMemo(() => {
     if (!desde || !hasta) return [];
-    const porDia: Record<string, { fecha: string; pedidos: number; venta: number }> = {};
+    const porDia: Record<string, { fecha: string; pedidos: number }> = {};
 
     // Inicializar todos los días del rango en 0, para que la gráfica no
     // tenga huecos en los días sin ventas.
@@ -74,12 +71,13 @@ export default function VentasPorDiaChart() {
     const fin = new Date(hasta + 'T12:00:00');
     while (cursor <= fin) {
       const key = cursor.toISOString().split('T')[0];
-      porDia[key] = { fecha: key, pedidos: 0, venta: 0 };
+      porDia[key] = { fecha: key, pedidos: 0 };
       cursor.setDate(cursor.getDate() + 1);
     }
 
     pedidos.forEach(p => {
-      if (String(p.ESTATUS_ENVIO) === 'CANCELADO') return;
+      const estado = String(p.ESTATUS_ENVIO || '').toUpperCase().trim();
+      if (estado === 'CANCELADO') return;
 
       const notas = String(p.NOTAS || '').toUpperCase();
       if (notas.indexOf('MARKETING') !== -1 || notas.indexOf('SORTEO') !== -1) return;
@@ -93,15 +91,16 @@ export default function VentasPorDiaChart() {
       if (tipoFiltro !== 'todo') {
         const esStock = brutos.some(c => String(c.ORIGEN || '').toUpperCase().indexOf('STOCK') !== -1);
         const tipoReal = esStock ? 'STOCK' : 'PEDIDO';
-        if (tipoFiltro === 'pedido' && tipoReal === 'STOCK') return;
+        if ((tipoFiltro === 'pedido' || tipoFiltro === 'activo') && tipoReal === 'STOCK') return;
         if (tipoFiltro === 'stock' && tipoReal !== 'STOCK') return;
+        // 'activo': además de ser tipo PEDIDO, debe seguir sin entregar HOY
+        if (tipoFiltro === 'activo' && estado === 'ENTREGADO') return;
       }
 
       const f = String(p.F_ORDEN || '').slice(0, 10);
       if (!f || f < desde || f > hasta) return;
-      if (!porDia[f]) porDia[f] = { fecha: f, pedidos: 0, venta: 0 };
+      if (!porDia[f]) porDia[f] = { fecha: f, pedidos: 0 };
       porDia[f].pedidos += 1;
-      porDia[f].venta += Number(p.totales?.venta) || 0;
     });
 
     return Object.values(porDia).sort((a, b) => a.fecha.localeCompare(b.fecha));
@@ -112,37 +111,17 @@ export default function VentasPorDiaChart() {
   if (error)
     return <div className="card" style={{ padding: 24, color: 'var(--rose)', fontSize: 14 }}>Error: {error}</div>;
 
-  const total = metrica === 'pedidos'
-    ? datos.reduce((s, d) => s + d.pedidos, 0)
-    : datos.reduce((s, d) => s + d.venta, 0);
+  const total = datos.reduce((s, d) => s + d.pedidos, 0);
 
   return (
     <div className="card" style={{ padding: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
-        <div>
-          <div style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
-            {metrica === 'pedidos' ? 'Pedidos por día' : 'Venta por día'}
-          </div>
-          <div className="display tabular" style={{ fontSize: 28, fontWeight: 300 }}>
-            {metrica === 'pedidos' ? total : money(total)}
-            <span style={{ fontSize: 13, color: 'var(--text-soft)', marginLeft: 8, fontFamily: 'inherit' }}>
-              {metrica === 'pedidos' ? 'en total' : 'en total'}
-            </span>
-          </div>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
+          Pedidos por día
         </div>
-        <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 4, overflow: 'hidden' }}>
-          <button
-            onClick={() => setMetrica('pedidos')}
-            style={{ padding: '6px 14px', fontSize: 12, border: 'none', cursor: 'pointer', background: metrica === 'pedidos' ? 'var(--text)' : 'transparent', color: metrica === 'pedidos' ? 'var(--surface)' : 'var(--text-soft)' }}
-          >
-            # Pedidos
-          </button>
-          <button
-            onClick={() => setMetrica('venta')}
-            style={{ padding: '6px 14px', fontSize: 12, border: 'none', cursor: 'pointer', background: metrica === 'venta' ? 'var(--text)' : 'transparent', color: metrica === 'venta' ? 'var(--surface)' : 'var(--text-soft)' }}
-          >
-            $ Venta
-          </button>
+        <div className="display tabular" style={{ fontSize: 28, fontWeight: 300 }}>
+          {total}
+          <span style={{ fontSize: 13, color: 'var(--text-soft)', marginLeft: 8, fontFamily: 'inherit' }}>en total</span>
         </div>
       </div>
 
@@ -158,8 +137,9 @@ export default function VentasPorDiaChart() {
         <div>
           <label style={{ fontSize: 11, color: 'var(--text-soft)' }}>Tipo</label>
           <select className="input" value={tipoFiltro} onChange={e => setTipoFiltro(e.target.value as TipoFiltro)} style={{ marginTop: 4 }}>
-            <option value="pedido">Solo pedidos</option>
-            <option value="stock">Solo stock</option>
+            <option value="pedido">Se hicieron</option>
+            <option value="activo">Siguen activos</option>
+            <option value="stock">Stock</option>
             <option value="todo">Todo</option>
           </select>
         </div>
@@ -175,13 +155,9 @@ export default function VentasPorDiaChart() {
               tick={{ fontSize: 11 }}
               interval="preserveStartEnd"
             />
-            <YAxis
-              tick={{ fontSize: 11 }}
-              width={metrica === 'venta' ? 50 : 30}
-              allowDecimals={false}
-            />
-            <Tooltip content={(props) => <CustomTooltip {...props} metrica={metrica} />} />
-            <Bar dataKey={metrica} fill="#4A6B8A" radius={[3, 3, 0, 0]} />
+            <YAxis tick={{ fontSize: 11 }} width={30} allowDecimals={false} />
+            <Tooltip content={(props) => <CustomTooltip {...props} />} />
+            <Bar dataKey="pedidos" fill="#4A6B8A" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
