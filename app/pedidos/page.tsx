@@ -58,7 +58,8 @@ export default function PedidosPage() {
     filtered = filtered.filter(p =>
       String(p.NOMBRE || '').toLowerCase().includes(q) ||
       String(p.ORDEN_ID || '').toLowerCase().includes(q) ||
-      String(p.cliente?.CIUDAD || '').toLowerCase().includes(q)
+      String(p.cliente?.CIUDAD || '').toLowerCase().includes(q) ||
+      String(p.COURIER || '').toLowerCase().includes(q)
     );
   }
 
@@ -115,7 +116,7 @@ export default function PedidosPage() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: 12, marginBottom: 20 }}>
-          <input className="input" placeholder="Buscar clienta, ID o ciudad…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input className="input" placeholder="Buscar clienta, ID, ciudad o courier…" value={search} onChange={(e) => setSearch(e.target.value)} />
           <select className="input" value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)}>
             <option value="todos">Todos los estados</option>
             {ESTADOS.slice(0, 7).map(s => <option key={s} value={s}>{s}</option>)}
