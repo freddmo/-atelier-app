@@ -590,14 +590,18 @@ export default function StockPage() {
     lotesEnCombos.add(c.inferior.LOTE_ID);
   });
 
-  const lotesLibres = lotes.filter(l => !lotesEnCombos.has(l.LOTE_ID));
+  const lotesLibres = lotes.filter(l => !lotesEnCombos.has(l.LOTE_ID) && !l.enCamino);
   const caminoLibres = enCamino.filter(l => !lotesEnCombos.has(l.LOTE_ID));
 
   type OpcionPieza = { LOTE_ID: string; NOMBRE_PRODUCTO: string; TIPO_PRENDA: string; TALLA: string; LONGITUD: string; COLOR: string; enCamino: boolean };
-  const piezasParaArmar: OpcionPieza[] = [
-    ...lotes.map(l => ({ LOTE_ID: l.LOTE_ID, NOMBRE_PRODUCTO: l.NOMBRE_PRODUCTO, TIPO_PRENDA: l.TIPO_PRENDA, TALLA: l.TALLA, LONGITUD: l.LONGITUD, COLOR: l.COLOR, enCamino: false })),
-    ...enCamino.map(l => ({ LOTE_ID: l.LOTE_ID, NOMBRE_PRODUCTO: l.NOMBRE_PRODUCTO, TIPO_PRENDA: l.TIPO_PRENDA, TALLA: l.TALLA, LONGITUD: l.LONGITUD, COLOR: l.COLOR, enCamino: true })),
-  ].filter(p => !lotesEnCombos.has(p.LOTE_ID));
+  // OJO: "lotes" (de getStockDisponible) YA incluye tanto lo llegado como lo
+  // en camino, cada uno marcado con su bandera .enCamino — por eso NO se
+  // combina aquí con el estado "enCamino" (ese es de getLotesEnCamino, una
+  // llamada aparte para la sección de despacho). Combinarlos duplicaba cada
+  // prenda en camino en este selector.
+  const piezasParaArmar: OpcionPieza[] = lotes
+    .filter(l => !lotesEnCombos.has(l.LOTE_ID))
+    .map(l => ({ LOTE_ID: l.LOTE_ID, NOMBRE_PRODUCTO: l.NOMBRE_PRODUCTO, TIPO_PRENDA: l.TIPO_PRENDA, TALLA: l.TALLA, LONGITUD: l.LONGITUD, COLOR: l.COLOR, enCamino: !!l.enCamino }));
 
   const superiores = piezasParaArmar.filter(p => ['TOP', 'CAMISA'].includes(String(p.TIPO_PRENDA || '').toUpperCase()));
   const inferiores = piezasParaArmar.filter(p => String(p.TIPO_PRENDA || '').toUpperCase() === 'PANTALON');
