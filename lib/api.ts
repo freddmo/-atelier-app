@@ -584,6 +584,21 @@ export const api = {
       usuario,
     });
   },
+  async corregirItemStock(
+    params: { ordenId: string; itemRow: number; nuevoSku: string; nuevaTalla: string; nuevaLongitud: string; nuevoColor: string },
+    usuario: string
+  ) {
+    return apiCall<{ itemRow: number; loteOriginalId: string; loteNuevoId: string; nuevoCosto: number }>({
+      action: 'corregirItemStock',
+      ordenId: params.ordenId,
+      itemRow: String(params.itemRow),
+      nuevoSku: params.nuevoSku,
+      nuevaTalla: params.nuevaTalla,
+      nuevaLongitud: params.nuevaLongitud,
+      nuevoColor: params.nuevoColor,
+      usuario,
+    });
+  },
   async getGananciaPorTipo(fechaInicio?: string, fechaFin?: string) {
     const params: Record<string, string> = { action: 'getGananciaPorTipo' };
     if (fechaInicio) params.fechaInicio = fechaInicio;
