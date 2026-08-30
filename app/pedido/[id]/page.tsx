@@ -10,6 +10,7 @@ import StateModal from '@/components/StateModal';
 import PaymentModal from '@/components/PaymentModal';
 import ItemsStateModal from '@/components/ItemsStateModal';
 import CambioItemModal from '@/components/CambioItemModal';
+import CorregirItemModal from '@/components/CorregirItemModal';
 import CancelarItemModal from '@/components/CancelarItemModal';
 import PerdidaTransitoModal from '@/components/PerdidaTransitoModal';
 
@@ -82,6 +83,7 @@ export default function PedidoDetallePage() {
   const [isBodega, setIsBodega] = useState(false);
   const [showPayModal, setShowPayModal] = useState(false);
   const [cambioItem, setCambioItem] = useState<any | null>(null);
+  const [corregirItem, setCorregirItem] = useState<any | null>(null);
   const [cancelarItem, setCancelarItem] = useState<any | null>(null);
   const [showPerdida, setShowPerdida] = useState(false);
   const [showDescuento, setShowDescuento] = useState(false);
@@ -640,6 +642,16 @@ export default function PedidoDetallePage() {
                             : info.valor}
                         </span>
                       )}
+                      {puedeMover && !cancelado && !itemEntregado(item) && info?.tipo === 'stock' && (
+                        <button
+                          onClick={() => setCorregirItem(item)}
+                          className="btn"
+                          style={{ padding: '2px 8px', fontSize: 10 }}
+                          title="Elegiste mal la talla/color al asignar stock — corrígelo sin dejar rastro"
+                        >
+                          ✎ Corregir talla/color
+                        </button>
+                      )}
                       {puedeMover && !cancelado && !itemEntregado(item) && (
                         <button
                           onClick={() => setCambioItem(item)}
@@ -749,6 +761,20 @@ export default function PedidoDetallePage() {
           onClose={() => setCambioItem(null)}
           onDone={(msg) => {
             setCambioItem(null);
+            setToast(msg);
+            setTimeout(() => setToast(''), 3500);
+            loadPedido();
+          }}
+        />
+      )}
+
+      {corregirItem && (
+        <CorregirItemModal
+          ordenId={pedido.ORDEN_ID}
+          item={corregirItem}
+          onClose={() => setCorregirItem(null)}
+          onDone={(msg) => {
+            setCorregirItem(null);
             setToast(msg);
             setTimeout(() => setToast(''), 3500);
             loadPedido();
