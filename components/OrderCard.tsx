@@ -226,6 +226,8 @@ function CardExtra({ pedido }: { pedido: Pedido }) {
         <CourierInput ordenId={pedido.ORDEN_ID} valorInicial={str(pedido.COURIER)} />
       </div>
 
+      <VerificarInfoCliente pedido={pedido} />
+
       {items.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {items.map((it, i) => (
@@ -240,7 +242,6 @@ function CardExtra({ pedido }: { pedido: Pedido }) {
 export default function OrderCard({ pedido, showMoney = false }: Props) {
   const router = useRouter();
   const [copiado, setCopiado] = useState<'cobro' | 'listo' | null>(null);
-  const [mostrarInfo, setMostrarInfo] = useState(false);
   // Empieza en null (igual en servidor y cliente) y se calcula de verdad
   // solo en el navegador, para evitar un mismatch de hydration (React #418)
   // cuando el servidor (UTC) y el cliente (Ecuador) creen que es un día distinto.
@@ -262,14 +263,12 @@ export default function OrderCard({ pedido, showMoney = false }: Props) {
   function copiarCobro() {
     navigator.clipboard.writeText(generarMensajeCobro(pedido));
     setCopiado('cobro');
-    setMostrarInfo(true);
     setTimeout(() => setCopiado(null), 2000);
   }
 
   function copiarListoParaEnviar() {
     navigator.clipboard.writeText(generarMensajeListoParaEnviar(pedido));
     setCopiado('listo');
-    setMostrarInfo(true);
     setTimeout(() => setCopiado(null), 2000);
   }
 
@@ -333,7 +332,6 @@ export default function OrderCard({ pedido, showMoney = false }: Props) {
           </div>
         </div>
         <CardExtra pedido={pedido} />
-        {mostrarInfo && <VerificarInfoCliente pedido={pedido} />}
       </div>
 
       {/* MOBILE */}
@@ -384,7 +382,6 @@ export default function OrderCard({ pedido, showMoney = false }: Props) {
             </button>
           )}
         </div>
-        {mostrarInfo && <VerificarInfoCliente pedido={pedido} />}
       </div>
     </div>
   );
