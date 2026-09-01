@@ -49,6 +49,25 @@ function fmtDateShort(d: string) {
   return new Date(d + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
 }
 
+// Bloque de verificación con los datos del cliente — se agrega al final de
+// los mensajes copiados, para revisar antes de enviar. Si un campo está
+// vacío, igual se muestra la línea con "—" (a propósito, para notar que
+// falta ese dato).
+function bloqueVerificacion(pedido: Pedido): string {
+  const dato = (v: unknown) => {
+    const s = String(v ?? '').trim();
+    return s || '—';
+  };
+  let bloque = `\n\n────────────\n`;
+  bloque += `📋 Verificar antes de enviar:\n`;
+  bloque += `Ciudad: ${dato(pedido.cliente?.CIUDAD)}\n`;
+  bloque += `Dirección: ${dato(pedido.cliente?.DIRECCION)}\n`;
+  bloque += `Cédula: ${dato(pedido.cliente?.CEDULA_RUC)}\n`;
+  bloque += `Teléfono: ${dato(pedido.cliente?.TELEFONO)}\n`;
+  bloque += `Industria/especialización/interés: ${dato(pedido.cliente?.INDUSTRIA)}`;
+  return bloque;
+}
+
 function generarMensajeCobro(pedido: Pedido): string {
   const nombre = pedido.CLIENTE_NOMBRE || pedido.NOMBRE || '';
   const saldo = pedido.totales?.saldo ?? 0;
@@ -59,6 +78,7 @@ function generarMensajeCobro(pedido: Pedido): string {
   mensaje += `💛 Banco Pichincha #2215262086 (Mildred Zamora)\n`;
   mensaje += `🩷 Banco Guayaquil #0050468351 (Freddy Moreno)\n`;
   mensaje += `💳 Si deseas pagar con tarjeta, avísanos y te enviaremos el link de pago por PayPhone.`;
+  mensaje += bloqueVerificacion(pedido);
   return mensaje;
 }
 
@@ -79,6 +99,7 @@ function generarMensajeListoParaEnviar(pedido: Pedido): string {
   mensaje += `💛 Banco Pichincha #2215262086 (Mildred Zamora)\n`;
   mensaje += `🩷 Banco Guayaquil #0050468351 (Freddy Moreno)\n`;
   mensaje += `💳 Si deseas pagar con tarjeta, avísanos y te enviaremos el link de pago por PayPhone.`;
+  mensaje += bloqueVerificacion(pedido);
   return mensaje;
 }
 
