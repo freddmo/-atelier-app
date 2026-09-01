@@ -165,36 +165,42 @@ function CourierInput({ ordenId, valorInicial }: { ordenId: string; valorInicial
   );
 }
 
-function CardExtra({ pedido }: { pedido: Pedido }) {
-  const items = (pedido.items || []).filter(
-    it => String((it as any).ESTATUS_ITEM || '').toUpperCase().trim() !== 'CANCELADO'
-  );
+// Info del cliente para verificar antes de mandar un mensaje — solo
+// aparece cuando se le da clic a "Copiar cobro" o "Listo para enviar".
+function VerificarInfoCliente({ pedido }: { pedido: Pedido }) {
   const dir = str(pedido.cliente?.DIRECCION);
   const ciudad = str(pedido.cliente?.CIUDAD);
   const telefono = str(pedido.cliente?.TELEFONO);
   const cedulaRuc = str(pedido.cliente?.CEDULA_RUC);
   const industria = str(pedido.cliente?.INDUSTRIA);
 
-  const hayInfo = dir || telefono || cedulaRuc || industria || items.length > 0;
-  if (!hayInfo) return null;
+  if (!dir && !ciudad && !telefono && !cedulaRuc && !industria) return null;
+
+  return (
+    <div style={{ marginTop: 10, padding: '10px 12px', background: 'var(--bg)', borderRadius: 4, border: '1px solid var(--border)' }}>
+      <div style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+        Verificar antes de enviar
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12, color: 'var(--text)' }}>
+        <div><span style={{ color: 'var(--text-faint)' }}>Ciudad: </span>{ciudad || '—'}</div>
+        <div><span style={{ color: 'var(--text-faint)' }}>Dirección: </span>{dir || '—'}</div>
+        <div><span style={{ color: 'var(--text-faint)' }}>Cédula: </span>{cedulaRuc || '—'}</div>
+        <div><span style={{ color: 'var(--text-faint)' }}>Teléfono: </span>{telefono || '—'}</div>
+        <div><span style={{ color: 'var(--text-faint)' }}>Industria/especialización/interés: </span>{industria || '—'}</div>
+      </div>
+    </div>
+  );
+}
+
+function CardExtra({ pedido }: { pedido: Pedido }) {
+  const items = (pedido.items || []).filter(
+    it => String((it as any).ESTATUS_ITEM || '').toUpperCase().trim() !== 'CANCELADO'
+  );
+
+  if (items.length === 0) return null;
 
   return (
     <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {(dir || ciudad || telefono || cedulaRuc || industria) && (
-        <div>
-          <div style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
-            Verificar antes de enviar
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12, color: 'var(--text)' }}>
-            <div><span style={{ color: 'var(--text-faint)' }}>Ciudad: </span>{ciudad || '—'}</div>
-            <div><span style={{ color: 'var(--text-faint)' }}>Dirección: </span>{dir || '—'}</div>
-            <div><span style={{ color: 'var(--text-faint)' }}>Cédula: </span>{cedulaRuc || '—'}</div>
-            <div><span style={{ color: 'var(--text-faint)' }}>Teléfono: </span>{telefono || '—'}</div>
-            <div><span style={{ color: 'var(--text-faint)' }}>Industria/especialización/interés: </span>{industria || '—'}</div>
-          </div>
-        </div>
-      )}
-
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: 12 }}>
         <CourierInput ordenId={pedido.ORDEN_ID} valorInicial={str(pedido.COURIER)} />
       </div>
@@ -213,6 +219,7 @@ function CardExtra({ pedido }: { pedido: Pedido }) {
 export default function OrderCard({ pedido, showMoney = false }: Props) {
   const router = useRouter();
   const [copiado, setCopiado] = useState<'cobro' | 'listo' | null>(null);
+  const [mostrarInfo, setMostrarInfo] = useState(false);
   // Empieza en null (igual en servidor y cliente) y se calcula de verdad
   // solo en el navegador, para evitar un mismatch de hydration (React #418)
   // cuando el servidor (UTC) y el cliente (Ecuador) creen que es un día distinto.
@@ -234,12 +241,14 @@ export default function OrderCard({ pedido, showMoney = false }: Props) {
   function copiarCobro() {
     navigator.clipboard.writeText(generarMensajeCobro(pedido));
     setCopiado('cobro');
+    setMostrarInfo(true);
     setTimeout(() => setCopiado(null), 2000);
   }
 
   function copiarListoParaEnviar() {
     navigator.clipboard.writeText(generarMensajeListoParaEnviar(pedido));
     setCopiado('listo');
+    setMostrarInfo(true);
     setTimeout(() => setCopiado(null), 2000);
   }
 
@@ -303,6 +312,7 @@ export default function OrderCard({ pedido, showMoney = false }: Props) {
           </div>
         </div>
         <CardExtra pedido={pedido} />
+        {mostrarInfo && <VerificarInfoCliente pedido={pedido} />}
       </div>
 
       {/* MOBILE */}
@@ -353,6 +363,7 @@ export default function OrderCard({ pedido, showMoney = false }: Props) {
             </button>
           )}
         </div>
+        {mostrarInfo && <VerificarInfoCliente pedido={pedido} />}
       </div>
     </div>
   );
