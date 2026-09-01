@@ -181,31 +181,17 @@ function CardExtra({ pedido }: { pedido: Pedido }) {
   return (
     <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 10 }}>
       {(dir || ciudad || telefono || cedulaRuc || industria) && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: 12, color: 'var(--text-soft)' }}>
-          {dir && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ color: 'var(--text-faint)' }}>📍</span>
-              {dir}{ciudad ? `, ${ciudad}` : ''}
-            </span>
-          )}
-          {telefono && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ color: 'var(--text-faint)' }}>📞</span>
-              {telefono}
-            </span>
-          )}
-          {cedulaRuc && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ color: 'var(--text-faint)' }}>🪪</span>
-              {cedulaRuc}
-            </span>
-          )}
-          {industria && (
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ color: 'var(--text-faint)' }}>🩺</span>
-              {industria}
-            </span>
-          )}
+        <div>
+          <div style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+            Verificar antes de enviar
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 12, color: 'var(--text)' }}>
+            <div><span style={{ color: 'var(--text-faint)' }}>Ciudad: </span>{ciudad || '—'}</div>
+            <div><span style={{ color: 'var(--text-faint)' }}>Dirección: </span>{dir || '—'}</div>
+            <div><span style={{ color: 'var(--text-faint)' }}>Cédula: </span>{cedulaRuc || '—'}</div>
+            <div><span style={{ color: 'var(--text-faint)' }}>Teléfono: </span>{telefono || '—'}</div>
+            <div><span style={{ color: 'var(--text-faint)' }}>Industria/especialización/interés: </span>{industria || '—'}</div>
+          </div>
         </div>
       )}
 
