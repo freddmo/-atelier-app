@@ -703,6 +703,7 @@ export const api = {
       pedidosActivos: number;
       invertido: number;
       deuda: number;
+      deudaPersonal: number;
       capitalReal: number;
       cuentas: { cuenta: string; tipo: string; monto: number }[];
       detalleStock: { loteId: string; nombre: string; talla: string; color: string; cantidad: number; valor: number }[];
@@ -821,7 +822,13 @@ export const api = {
         donacion: number;
         neto: number;
         porSocio: number;
+        cubiertoPorFreddy: number;
+        porFreddyFinal: number;
         cantidadPedidos: number;
+      };
+      inversiones: {
+        total: number;
+        detalle: { fecha: string; concepto: string; monto: number; nota: string }[];
       };
       scrubme: { gananciaStock: number };
       proyeccion: { gananciaTotalMes: number; brecha: number };
