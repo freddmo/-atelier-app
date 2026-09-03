@@ -705,6 +705,8 @@ export const api = {
       deuda: number;
       capitalReal: number;
       cuentas: { cuenta: string; tipo: string; monto: number }[];
+      detalleStock: { loteId: string; nombre: string; talla: string; color: string; cantidad: number; valor: number }[];
+      detallePedidosActivos: { ordenId: string; cliente: string; estado: string; items: string[]; costo: number }[];
     }>({ action: 'getCapitalReal' });
   },
 
