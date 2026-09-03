@@ -14,6 +14,7 @@ type Capital = {
   stock: number;
   pedidosActivos: number;
   deuda: number;
+  deudaPersonal: number;
   cuentas: { cuenta: string; tipo: string; monto: number }[];
   detalleStock: { loteId: string; nombre: string; talla: string; color: string; cantidad: number; valor: number }[];
   detallePedidosActivos: { ordenId: string; cliente: string; estado: string; items: string[]; costo: number }[];
@@ -22,7 +23,7 @@ type Capital = {
 const money = (n: number) =>
   '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-type SeccionId = 'liquido' | 'stock' | 'pedidos' | 'deuda';
+type SeccionId = 'liquido' | 'stock' | 'pedidos' | 'deuda' | 'personal';
 
 export default function DesgloseCapitalCard() {
   const [cap, setCap] = useState<Capital | null>(null);
@@ -46,6 +47,7 @@ export default function DesgloseCapitalCard() {
   if (!cap) return null;
 
   const liquidoCuentas = cap.cuentas.filter(c => c.tipo === 'ACTIVO');
+  const deudaPersonalCuentas = cap.cuentas.filter(c => c.tipo === 'DEUDA_PERSONAL');
   const deudaCuentas = cap.cuentas.filter(c => c.tipo === 'DEUDA');
 
   function toggle(s: SeccionId) {
@@ -117,6 +119,16 @@ export default function DesgloseCapitalCard() {
                   `${l.nombre}${l.talla ? ' · ' + l.talla : ''}${l.color ? ' · ' + l.color : ''}${l.cantidad > 1 ? ` ×${l.cantidad}` : ''}`,
                   l.valor
                 ))}
+          </div>
+        )}
+
+        {/* DEUDA PERSONAL (te deben) */}
+        {cabecera('personal', '🧍', 'Te deben (deuda personal)', cap.deudaPersonal, deudaPersonalCuentas.length, 'var(--gold)')}
+        {abierta === 'personal' && (
+          <div style={{ padding: '4px 14px 12px' }}>
+            {deudaPersonalCuentas.length === 0
+              ? <div style={{ fontSize: 12, color: 'var(--text-faint)', padding: '8px 0' }}>Sin deuda personal registrada</div>
+              : deudaPersonalCuentas.map((c, i) => fila(c.cuenta, c.monto, 'var(--gold)'))}
           </div>
         )}
 
