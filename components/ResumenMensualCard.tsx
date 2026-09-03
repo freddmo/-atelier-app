@@ -17,7 +17,13 @@ type Resumen = {
     donacion: number;
     neto: number;
     porSocio: number;
+    cubiertoPorFreddy: number;
+    porFreddyFinal: number;
     cantidadPedidos: number;
+  };
+  inversiones: {
+    total: number;
+    detalle: { fecha: string; concepto: string; monto: number; nota: string }[];
   };
   scrubme: { gananciaStock: number };
   proyeccion: { gananciaTotalMes: number; brecha: number };
@@ -70,16 +76,18 @@ export default function ResumenMensualCard({
     </div>
   );
 
+  const hayCubierto = r.repartible.cubiertoPorFreddy > 0.005;
+
   return (
     <div className="card" style={{ padding: 24, borderTop: '3px solid var(--green)' }}>
       <div style={{ fontSize: 11, color: 'var(--text-soft)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 4 }}>
         Repartible del corte
       </div>
       <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--blue-bg, #E5EDF3)', color: 'var(--blue)', fontSize: 12, fontWeight: 500, padding: '4px 10px', borderRadius: 100, marginBottom: 10 }}>
-        📅 {r.repartible.cantidadPedidos} pedidos — contados por fecha de COBRO, no de pedido
+        📅 {r.repartible.cantidadPedidos} pedidos completados (entregados y pagados)
       </div>
       <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '0 0 14px' }}>
-        Pedidos cuyo pago se completó (saldo $0) entre {r.desde} y {r.hasta}. No importa cuándo se hizo el pedido, solo cuándo terminó de pagarse.
+        Entre {r.desde} y {r.hasta}, contados por fecha de cobro.
       </p>
 
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
@@ -99,15 +107,43 @@ export default function ResumenMensualCard({
         {linea('Neto repartible', r.repartible.neto, '=', true)}
       </div>
 
-      {/* Nota aclaratoria: esto NO es plata aparte, ya vive dentro del Líquido */}
-      <div style={{ marginTop: 14, padding: '10px 14px', background: 'var(--bg)', borderRadius: 4, fontSize: 12, color: 'var(--text-soft)', lineHeight: 1.5 }}>
-        💡 Este dinero <strong style={{ color: 'var(--text)' }}>ya está dentro</strong> de tu Líquido (abajo en "Capital real") — no es plata aparte. Repartir significa <strong style={{ color: 'var(--text)' }}>sacarlo</strong> del negocio hacia el bolsillo de cada socio. Mientras no lo saquen, el capital del negocio no cambia.
-      </div>
+      {/* Reembolso a Freddy: restar el gasto del total compartido NO lo
+          reembolsa — hay que sumárselo aparte a su mitad. */}
+      {hayCubierto && (
+        <div style={{ marginTop: 14, padding: '12px 14px', background: 'var(--amber-bg, #FAF0E0)', border: '1px solid var(--amber)', borderRadius: 4, fontSize: 12, color: 'var(--text-soft)', lineHeight: 1.6 }}>
+          <div style={{ fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>
+            🧾 Freddy cubrió {money(r.repartible.cubiertoPorFreddy)} de su bolsillo este corte
+          </div>
+          Ya está restado del "Neto repartible" de arriba (para no repartir de más), pero eso <strong>no</strong> lo reembolsa — hay que sumárselo a Freddy aparte de su mitad:
+          <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--amber)', display: 'flex', justifyContent: 'space-between', fontWeight: 600, color: 'var(--text)' }}>
+            <span>A Freddy le toca en total</span>
+            <span className="tabular">{money(r.repartible.porFreddyFinal)}</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-faint)', marginTop: 2 }}>
+            <span>A Mildred le toca (su mitad normal)</span>
+            <span className="tabular">{money(r.repartible.porSocio)}</span>
+          </div>
+        </div>
+      )}
 
-      {/* Advertencia: por qué este conteo NO va a coincidir con la gráfica de pedidos por día */}
-      <div style={{ marginTop: 8, padding: '10px 14px', background: 'var(--amber-bg, #FAF0E0)', borderRadius: 4, fontSize: 12, color: 'var(--text-soft)', lineHeight: 1.5 }}>
-        ⚠️ Si comparas este número con la gráfica de "Pedidos por día" más abajo, <strong style={{ color: 'var(--text)' }}>no van a coincidir</strong> — y está bien que no coincidan. Esta tarjeta cuenta por fecha de <strong style={{ color: 'var(--text)' }}>cobro</strong>; la gráfica cuenta por fecha de <strong style={{ color: 'var(--text)' }}>pedido</strong>. Un pedido de hace meses que recién se cobró este corte cuenta aquí, pero no ahí.
-      </div>
+      {/* Inversiones del período: no restan del reparto, se quedaron
+          dentro del negocio como activo */}
+      {r.inversiones.total > 0.005 && (
+        <div style={{ marginTop: 8, padding: '10px 14px', background: 'var(--bg)', borderRadius: 4, fontSize: 12, color: 'var(--text-soft)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 500, color: 'var(--text)' }}>
+            <span>💼 Invertido en el negocio este corte</span>
+            <span className="tabular">{money(r.inversiones.total)}</span>
+          </div>
+          <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {r.inversiones.detalle.map((inv, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-faint)' }}>
+                <span>{inv.concepto}{inv.nota ? ` — ${inv.nota}` : ''}</span>
+                <span className="tabular">{money(inv.monto)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--text-soft)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
