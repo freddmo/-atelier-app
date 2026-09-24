@@ -186,6 +186,74 @@ function CourierInput({ ordenId, valorInicial }: { ordenId: string; valorInicial
   );
 }
 
+// Nota corta para bodega (máx 400 caracteres) — se guarda sola al salir
+// del campo, sin ningún botón. Arranca colapsada si está vacía, para no
+// ocupar espacio de más en cards que no la necesitan.
+const NOTA_MAX = 400;
+function NotaBodegaInput({ ordenId, valorInicial }: { ordenId: string; valorInicial: string }) {
+  const [valor, setValor] = useState(valorInicial);
+  const [editando, setEditando] = useState(!!valorInicial);
+  const [guardando, setGuardando] = useState(false);
+
+  useEffect(() => { setValor(valorInicial); setEditando(!!valorInicial); }, [valorInicial]);
+
+  async function guardar() {
+    if (valor === valorInicial) return;
+    const user = auth.getUser();
+    if (!user) return;
+    setGuardando(true);
+    try {
+      await api.setNotaBodega(ordenId, valor.trim(), user.usuario);
+    } catch (err) {
+      alert('Error al guardar la nota: ' + (err instanceof Error ? err.message : 'desconocido'));
+      setValor(valorInicial);
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  if (!editando) {
+    return (
+      <button
+        onClick={(e) => { e.stopPropagation(); setEditando(true); }}
+        className="print-hide"
+        style={{
+          border: 'none', background: 'transparent', color: 'var(--text-faint)',
+          fontSize: 12, cursor: 'pointer', padding: 0, textAlign: 'left',
+        }}
+      >
+        + Nota para bodega
+      </button>
+    );
+  }
+
+  return (
+    <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+        <span style={{ color: 'var(--text-faint)', fontSize: 12 }}>📝</span>
+        <span style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Nota para bodega</span>
+      </div>
+      <textarea
+        value={valor}
+        onChange={(e) => setValor(e.target.value.slice(0, NOTA_MAX))}
+        onBlur={guardar}
+        maxLength={NOTA_MAX}
+        placeholder="Ej: se cambió la talla del top, avisar a la clienta…"
+        disabled={guardando}
+        rows={2}
+        style={{
+          border: '1px solid var(--border)', borderRadius: 4, background: 'var(--bg)',
+          fontSize: 12, color: 'var(--text)', padding: '6px 8px', width: '100%',
+          outline: 'none', opacity: guardando ? 0.5 : 1, resize: 'vertical', fontFamily: 'inherit',
+        }}
+      />
+      <div className="print-hide" style={{ fontSize: 10, color: 'var(--text-faint)', textAlign: 'right' }}>
+        {valor.length}/{NOTA_MAX}
+      </div>
+    </div>
+  );
+}
+
 // Info del cliente para verificar antes de mandar un mensaje — solo
 // aparece cuando se le da clic a "Copiar cobro" o "Listo para enviar".
 function VerificarInfoCliente({ pedido }: { pedido: Pedido }) {
@@ -225,6 +293,8 @@ function CardExtra({ pedido }: { pedido: Pedido }) {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: 12 }}>
         <CourierInput ordenId={pedido.ORDEN_ID} valorInicial={str(pedido.COURIER)} />
       </div>
+
+      <NotaBodegaInput ordenId={pedido.ORDEN_ID} valorInicial={str((pedido as any).NOTA_BODEGA)} />
 
       <VerificarInfoCliente pedido={pedido} />
 
