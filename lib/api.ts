@@ -476,6 +476,14 @@ export const api = {
       usuario,
     });
   },
+  async setNotaBodega(ordenId: string, nota: string, usuario: string) {
+    return apiCall<{ ordenId: string; nota: string }>({
+      action: 'setNotaBodega',
+      ordenId,
+      nota,
+      usuario,
+    });
+  },
   async getLotesEnCamino(): Promise<LoteEnCamino[]> {
     return apiCall<LoteEnCamino[]>({ action: 'getLotesEnCamino' });
   },
