@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   api,
+  type Cuenta,
   PedidoPendienteCostos,
   ItemPendiente,
   ItemFacturaPayload,
@@ -64,6 +65,10 @@ export default function CargarFacturaPage() {
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState('');
 
+  // Con qué se pagó la factura ('' = automático: Chase si es solo stock, Capital One si no)
+  const [cuentasPago, setCuentasPago] = useState<Cuenta[]>([]);
+  const [cuentaElegida, setCuentaElegida] = useState('');
+
   useEffect(() => {
     const user = auth.getUser();
     if (!user) { router.replace('/login'); return; }
@@ -71,9 +76,19 @@ export default function CargarFacturaPage() {
     // Se calcula aquí (solo en el navegador) para evitar un mismatch de
     // hydration entre el servidor (UTC) y el cliente (Ecuador) — este
     // campo SÍ se muestra en pantalla (input de fecha de factura).
-    setFecha(new Date().toISOString().split('T')[0]);
+    setFecha((() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })());
+    api.getCuentas()
+      .then(cs => setCuentasPago(cs.filter(c => ['BANCO', 'EFECTIVO', 'TARJETA', 'TARJETA_PERSONAL'].includes(c.tipo))))
+      .catch(() => setCuentasPago([]));
     load();
   }, [router]);
+
+  const cuentaAuto = (() => {
+    const soloStock = itemsPedido.length === 0 && itemsStock.length > 0;
+    const buscar = (t: string) => cuentasPago.find(c => c.nombre.toLowerCase().includes(t));
+    return (soloStock ? buscar('chase') : buscar('capital'))?.id || cuentasPago[0]?.id || '';
+  })();
+  const cuentaPago = cuentaElegida || cuentaAuto;
 
   async function load() {
     setLoading(true);
@@ -226,6 +241,7 @@ export default function CargarFacturaPage() {
         stockYaLlego: hayStock ? stockYaLlego : true,
         tracking: (hayStock && !stockYaLlego) ? tracking.trim() : '',
         transporte: (hayStock && !stockYaLlego) ? transporte : '',
+        cuentaPago,
       }, user.usuario);
 
       setToast(`✅ Factura ${numFactura} cargada: ${totalItems} items por ${fmtMoney(totalFactura)}`);
@@ -282,6 +298,14 @@ export default function CargarFacturaPage() {
               <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Shipping ($)</label>
               <input type="number" step="0.01" className="input" value={shipping} onChange={(e) => setShipping(e.target.value)} style={{ marginTop: 4 }} />
             </div>
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Pagado con</label>
+            <select className="input" value={cuentaPago} onChange={(e) => setCuentaElegida(e.target.value)} style={{ marginTop: 4, maxWidth: 360 }}>
+              {cuentasPago.length === 0 && <option value="">(sin cuentas: se guarda sin cuenta)</option>}
+              {cuentasPago.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+            <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 4 }}>Si fue con el Amex de Freddy, baja su deuda con el negocio.</div>
           </div>
         </div>
 
