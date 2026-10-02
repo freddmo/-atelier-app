@@ -357,7 +357,7 @@ export default function PedidoDetallePage() {
         </div>
 
         {/* TRACKING */}
-        <div className="card" style={{ padding: 28, marginBottom: 20 }}>
+        <div className="card m-pad" style={{ padding: 28, marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 8 }}>
             <h3 style={{ margin: 0, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Recorrido del envío</h3>
             <span className={`pill ${stateClass(pedido.ESTATUS_ENVIO)}`} style={{ padding: '6px 14px', fontSize: 12 }}>{pedido.ESTATUS_ENVIO}</span>
@@ -384,7 +384,7 @@ export default function PedidoDetallePage() {
                       );
                     })}
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
+                  <div className="hide-mobile" style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
                     {ESTADOS.map((s, i) => {
                       const isCurrent = i === idx;
                       return (
@@ -437,8 +437,8 @@ export default function PedidoDetallePage() {
         </div>
 
         {/* INFO GRID */}
-        <div style={{ display: 'grid', gridTemplateColumns: showMoney ? '1.4fr 1fr' : '1fr', gap: 20, marginBottom: 20 }}>
-          <div className="card" style={{ padding: 28 }}>
+        <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: showMoney ? '1.4fr 1fr' : '1fr', gap: 20, marginBottom: 20 }}>
+          <div className="card m-pad" style={{ padding: 28 }}>
             <h3 style={{ margin: '0 0 20px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Entrega</h3>
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 6 }}>DIRECCIÓN</div>
@@ -474,7 +474,7 @@ export default function PedidoDetallePage() {
           </div>
 
           {showMoney && (
-            <div className="card" style={{ padding: 28 }}>
+            <div className="card m-pad" style={{ padding: 28 }}>
               <h3 style={{ margin: '0 0 20px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>Pago</h3>
               <div style={{ marginBottom: 14 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '6px 0' }}>
@@ -608,7 +608,7 @@ export default function PedidoDetallePage() {
         </div>
 
         {/* PRODUCTOS */}
-        <div className="card" style={{ padding: 28, marginBottom: 20 }}>
+        <div className="card m-pad" style={{ padding: 28, marginBottom: 20 }}>
           <h3 style={{ margin: '0 0 20px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
             Productos · <span className="tabular">{totalCantidad} pieza{totalCantidad !== 1 ? 's' : ''}</span>
           </h3>
@@ -617,7 +617,7 @@ export default function PedidoDetallePage() {
               const info = origenInfo(origenDeItem(item, pedido!.costos));
               const cancelado = estadoDeItem(item) === 'CANCELADO';
               return (
-                <div key={idx} style={{ display: 'grid', gridTemplateColumns: showMoney ? '24px 1fr auto auto auto' : '24px 1fr auto', gap: 16, alignItems: 'center', padding: 14, background: 'var(--bg)', borderRadius: 4, opacity: cancelado ? 0.6 : 1 }}>
+                <div key={idx} className="m-prod" style={{ display: 'grid', gridTemplateColumns: showMoney ? '24px 1fr auto auto auto' : '24px 1fr auto', gap: 16, alignItems: 'center', padding: 14, background: 'var(--bg)', borderRadius: 4, opacity: cancelado ? 0.6 : 1 }}>
                   <span className="display" style={{ fontSize: 18, fontWeight: 300, color: 'var(--text-faint)' }}>{String(idx + 1).padStart(2, '0')}</span>
                   <div style={{ minWidth: 0 }}>
                     <div className="display" style={{ fontSize: 16, fontWeight: 400, marginBottom: 4, textDecoration: cancelado ? 'line-through' : 'none' }}>{item.NOMBRE_PRODUCTO || item.SKU}</div>
