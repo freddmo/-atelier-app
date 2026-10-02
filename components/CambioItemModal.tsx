@@ -97,7 +97,7 @@ export default function CambioItemModal({ ordenId, item, onClose, onDone }: Prop
               {productos.map(p => <option key={p.SKU} value={p.SKU}>{p.SKU} — {p.NOMBRE}</option>)}
             </select>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.3fr 1fr', gap: 8 }}>
+          <div className="m-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.3fr 1fr', gap: 8 }}>
             <div><label style={labelStyle}>Talla</label><input className="input" value={tallaStock} onChange={(e) => setTallaStock(e.target.value)} style={{ marginTop: 2 }} /></div>
             <div><label style={labelStyle}>Longitud</label>
               <select className="input" value={longStock} onChange={(e) => setLongStock(e.target.value)} style={{ marginTop: 2 }}>
@@ -117,7 +117,7 @@ export default function CambioItemModal({ ordenId, item, onClose, onDone }: Prop
               Se volverá a pedir lo mismo: <strong>{item.NOMBRE_PRODUCTO || item.SKU}</strong> · {item.TALLA} · {item.LONGITUD} · {item.COLOR}
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1.2fr 1fr', gap: 8 }}>
+            <div className="m-2col-first" style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr 1.2fr 1fr', gap: 8 }}>
               <div><label style={labelStyle}>SKU</label>
                 <select className="input" value={skuY} onChange={(e) => setSkuY(e.target.value)} style={{ marginTop: 2 }}>
                   {productos.map(p => <option key={p.SKU} value={p.SKU}>{p.SKU}</option>)}
