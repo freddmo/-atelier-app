@@ -340,7 +340,7 @@ export default function NuevoPedidoPage() {
         ) : (
           <>
             {/* 1. CLIENTE */}
-            <div className="card" style={{ padding: 28, marginBottom: 20 }}>
+            <div className="card m-pad" style={{ padding: 28, marginBottom: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                 <h3 style={{ margin: 0, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>1. Cliente</h3>
                 <button
@@ -487,8 +487,8 @@ export default function NuevoPedidoPage() {
             </div>
 
             {/* 2. PRODUCTOS */}
-            <div className="card" style={{ padding: 28, marginBottom: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <div className="card m-pad" style={{ padding: 28, marginBottom: 20 }}>
+              <div className="m-wrap" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                 <h3 style={{ margin: 0, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
                   2. Productos · <span className="tabular">{lineas.length}</span>
                 </h3>
@@ -515,7 +515,7 @@ export default function NuevoPedidoPage() {
                       </div>
 
                       {l.tipo === 'set' ? (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 0.8fr 0.8fr 1fr 1fr', gap: 10, alignItems: 'end' }}>
+                        <div className="m-2col-first" style={{ display: 'grid', gridTemplateColumns: '1.4fr 0.8fr 0.8fr 1fr 1fr', gap: 10, alignItems: 'end' }}>
                           <div>
                             <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Set</label>
                             <select className="input" value={l.setNombre} onChange={(e) => updateLinea(l.id, 'setNombre', e.target.value)} style={{ marginTop: 2, padding: '6px 8px', fontSize: 12 }}>
@@ -542,7 +542,7 @@ export default function NuevoPedidoPage() {
                           </div>
                         </div>
                       ) : l.tipo === 'suelta' ? (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 1fr 1fr 0.6fr 0.9fr', gap: 10, alignItems: 'end' }}>
+                        <div className="m-2col-first" style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 1fr 1fr 0.6fr 0.9fr', gap: 10, alignItems: 'end' }}>
                           <div>
                             <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Producto</label>
                             <select className="input" value={l.sku} onChange={(e) => updateLinea(l.id, 'sku', e.target.value)} style={{ marginTop: 2, padding: '6px 8px', fontSize: 12 }}>
@@ -574,7 +574,7 @@ export default function NuevoPedidoPage() {
                         </div>
                       ) : (
                         <div>
-                          <div style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.6fr 1fr', gap: 10, alignItems: 'end' }}>
+                          <div className="m-2col-first" style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.6fr 1fr', gap: 10, alignItems: 'end' }}>
                             <div>
                               <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Lote en stock</label>
                               <select className="input" value={l.loteId} onChange={(e) => updateLinea(l.id, 'loteId', e.target.value)} style={{ marginTop: 2, padding: '6px 8px', fontSize: 12 }}>
@@ -630,7 +630,7 @@ export default function NuevoPedidoPage() {
             </div>
 
             {/* 3. PRECIO Y NOTAS */}
-            <div className="card" style={{ padding: 28, marginBottom: 20 }}>
+            <div className="card m-pad" style={{ padding: 28, marginBottom: 20 }}>
               <h3 style={{ margin: '0 0 16px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>3. Precio y notas</h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div>
