@@ -203,6 +203,17 @@ body {
 @media (max-width: 768px) {
   .hide-mobile { display: none !important; }
   .show-mobile { display: block !important; }
+
+  /* Rejillas que en el celular se acomodan en una o dos columnas */
+  .m-stack { grid-template-columns: minmax(0, 1fr) !important; }
+  .m-2col { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .m-2col-first { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .m-2col-first > :first-child { grid-column: 1 / -1; }
+  .m-wrap { flex-wrap: wrap !important; }
+  .m-pad { padding: 18px !important; }
+  .m-prod { gap: 10px !important; padding: 12px !important; }
+  /* Evita que los campos se salgan de su casilla */
+  .m-2col input, .m-2col select, .m-2col-first input, .m-2col-first select { min-width: 0; width: 100%; }
 }
 @media (min-width: 769px) {
   .show-mobile { display: none !important; }
