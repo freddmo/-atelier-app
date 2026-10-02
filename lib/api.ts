@@ -70,6 +70,7 @@ export type NuevoPago = {
   metodo: string;
   urlComprobante?: string;
   notas?: string;
+  cuenta?: string; // CUENTA_ID a la que llegó (o de la que salió) la plata
 };
 
 export type Cliente = {
@@ -183,6 +184,7 @@ export type CargarCourierParams = {
   items?: { ordenId: string; itemRowNum: number; cantidad: number }[];
   costoCourier: number;
   fecha: string;
+  cuentaPago?: string;
 };
 
 export type ItemFacturaPayload = {
@@ -207,6 +209,7 @@ export type CargarFacturaParams = {
   stockYaLlego?: boolean;
   tracking?: string;
   transporte?: string;
+  cuentaPago?: string;
 };
 
 export type ItemConStock = {
@@ -333,6 +336,53 @@ export type Combo = {
   inferior: ComboPieza;
 };
 
+// ============ FINANZAS v2 ============
+export type TipoCuenta = 'BANCO' | 'EFECTIVO' | 'TARJETA' | 'TARJETA_PERSONAL' | 'DEUDA_SOCIO';
+export type Cuenta = {
+  id: string; nombre: string; tipo: TipoCuenta; uso: string; titular: string;
+  limite: number; saldoInicial: number; fechaInicial: string;
+};
+export type CuentaConSaldo = Cuenta & { saldo: number; usado: number };
+export type FinanzasCuentas = {
+  inicio: string;
+  cuentas: CuentaConSaldo[];
+  capital: { bancos: number; stock: number; materiales: number; pedidosEnCurso: number;
+    porCobrar: number; deudaSocios: number; tarjetas: number; total: number };
+};
+export type Movimiento = {
+  id: string; fecha: string; tipo: string; categoria: string; grupo: string;
+  origen: string; destino: string; origenNombre: string; destinoNombre: string;
+  monto: number; ordenId: string; aCargoDe: string; nota: string; auto: boolean;
+};
+export type PedidoCorte = {
+  ordenId: string; cliente: string; fecha: string; estado: string; metodoEnvio: string; transicion: boolean;
+  venta: number; ventaEncargo: number; ventaStock: number; prendaReal: boolean; estimados: string[];
+  costos: { prenda: number; courier: number; empaque: number; envio: number };
+  gananciaReparto: number; gananciaStock: number;
+};
+export type CorteTotales = {
+  cantPedidos: number; gananciaPedidos: number; sueldos: number; donacion: number; neto: number; porSocio: number;
+  gananciaStock: number; entradasNegocio: number; gastosNegocio: number; resultadoNegocio: number;
+};
+export type Corte = {
+  desde: string; hasta: string; sistema: 'nuevo' | 'anterior'; estado: 'ABIERTO' | 'CERRADO' | 'ANTERIOR';
+  esPrimerCorte?: boolean; fechaCierre?: string; cerradoPor?: string;
+  promedios?: { courierPorPieza: number; courierBase: number; empaquePorPedido: number; empaqueBase: number;
+    envio: Record<string, number>; envioBase: Record<string, number> };
+  avisos: { ordenId: string; cliente: string; fecha: string; prendas: string[] }[];
+  pedidos: PedidoCorte[];
+  gastosNegocioDetalle: { categoria: string; monto: number }[];
+  gastosSocio: Record<string, number>;
+  totales?: CorteTotales;
+  anterior?: { repartible: { gananciaPedidosPagados: number; gastosFijos: number; donacion: number; neto: number;
+    porSocio: number; cubiertoPorFreddy: number; porFreddyFinal: number; cantidadPedidos: number } } | null;
+};
+export type NuevoMovimiento = {
+  tipo: 'GASTO_NEGOCIO' | 'SUELDO' | 'GASTO_SOCIO' | 'GASTO_PERSONAL' | 'TRANSFERENCIA' | 'PAGO_TARJETA' | 'PAGO_REPARTO';
+  fecha: string; monto: number; comision?: number; categoria?: string;
+  origen?: string; destino?: string; aCargoDe?: string; nota?: string;
+};
+
 export const api = {
   async ping() {
     return apiCall<{ message: string }>({ action: 'ping' });
@@ -394,6 +444,7 @@ export const api = {
       metodo: pago.metodo,
       urlComprobante: pago.urlComprobante || '',
       notas: pago.notas || '',
+      cuenta: pago.cuenta || '',
       usuario,
     });
   },
@@ -424,6 +475,7 @@ export const api = {
       stockYaLlego: params.stockYaLlego ? 'true' : 'false',
       tracking: params.tracking || '',
       transporte: params.transporte || '',
+      cuentaPago: params.cuentaPago || '',
       usuario,
     });
   },
@@ -441,6 +493,7 @@ export const api = {
       items: JSON.stringify(params.items || []),
       costoCourier: String(params.costoCourier),
       fecha: params.fecha,
+      cuentaPago: params.cuentaPago || '',
       usuario,
     });
   },
@@ -703,6 +756,47 @@ export const api = {
   },
   
   // --- Capital real: liquido + stock + pedidos activos - deuda ---
+  // ============ FINANZAS v2 ============
+  async getCuentas(): Promise<Cuenta[]> {
+    return apiCall<Cuenta[]>({ action: 'getCuentas' });
+  },
+  async getFinanzasCuentas(): Promise<FinanzasCuentas> {
+    return apiCall<FinanzasCuentas>({ action: 'getFinanzasCuentas' });
+  },
+  async getMovimientos(desde = '', hasta = ''): Promise<Movimiento[]> {
+    return apiCall<Movimiento[]>({ action: 'getMovimientos', desde, hasta });
+  },
+  async getCorte(desde: string, hasta: string, donacion = 0): Promise<Corte> {
+    return apiCall<Corte>({ action: 'getCorte', desde, hasta, donacion: String(donacion) });
+  },
+  async getCortesCerrados(): Promise<{ id: string; desde: string; hasta: string; porSocio: number; fechaCierre: string; usuario: string }[]> {
+    return apiCall({ action: 'getCortesCerrados' });
+  },
+  async cerrarCorte(desde: string, hasta: string, donacion: number, usuario: string) {
+    return apiCall<{ desde: string; hasta: string; porSocio: number }>({ action: 'cerrarCorte', desde, hasta, donacion: String(donacion), usuario });
+  },
+  async registrarMovimiento(m: NuevoMovimiento, usuario: string) {
+    return apiCall<{ ids: string[] }>({
+      action: 'registrarMovimiento', tipo: m.tipo, fecha: m.fecha, monto: String(m.monto),
+      comision: String(m.comision || 0), categoria: m.categoria || '', origen: m.origen || '',
+      destino: m.destino || '', aCargoDe: m.aCargoDe || '', nota: m.nota || '', usuario,
+    });
+  },
+  async borrarMovimiento(id: string, usuario: string) {
+    return apiCall<{ id: string }>({ action: 'borrarMovimiento', id, usuario });
+  },
+  async registrarEnvio(p: { ordenId: string; monto: number; fecha: string; origen: string; empresa: string; nota?: string }, usuario: string) {
+    return apiCall<{ id: string }>({
+      action: 'registrarEnvio', ordenId: p.ordenId, monto: String(p.monto), fecha: p.fecha,
+      origen: p.origen, empresa: p.empresa, nota: p.nota || '', usuario,
+    });
+  },
+  async registrarCompraMaterial(p: { tabla: 'empaque' | 'regalos'; id: string; cantidad: number; precioTotal: number; envio: number; fecha: string; origen: string; nota?: string }, usuario: string) {
+    return apiCall<{ id: string; stockAntes: number; stockNuevo: number; costoAntes: number; costoNuevo: number }>({
+      action: 'registrarCompraMaterial', tabla: p.tabla, id: p.id, cantidad: String(p.cantidad),
+      precioTotal: String(p.precioTotal), envio: String(p.envio), fecha: p.fecha, origen: p.origen, nota: p.nota || '', usuario,
+    });
+  },
   async getCapitalReal() {
     return apiCall<{
       fechaFoto: string;
