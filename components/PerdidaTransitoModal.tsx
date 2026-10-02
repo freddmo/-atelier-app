@@ -106,7 +106,7 @@ export default function PerdidaTransitoModal({
                     </div>
 
                     <div style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase', marginBottom: 6 }}>Reemplazo a re-pedir</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 1fr 1fr', gap: 8 }}>
+                    <div className="m-2col-first" style={{ display: 'grid', gridTemplateColumns: '1.6fr 0.7fr 1fr 1fr', gap: 8 }}>
                       <select className="input" value={r.sku} onChange={e => setRepl(it._rowNum, 'sku', e.target.value)} style={{ fontSize: 12, padding: '6px 8px' }}>
                         {productos.map(p => <option key={p.SKU} value={p.SKU}>{p.SKU} — {p.NOMBRE}</option>)}
                       </select>
