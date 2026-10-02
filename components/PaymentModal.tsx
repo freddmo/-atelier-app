@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { api } from '@/lib/api';
+import { useEffect, useState } from 'react';
+import { api, type Cuenta } from '@/lib/api';
 import { auth } from '@/lib/auth';
 
 const METODOS_PAGO = [
@@ -20,7 +20,9 @@ type Props = {
 };
 
 export default function PaymentModal({ ordenId, saldoActual, onClose, onSaved }: Props) {
-  const today = new Date().toISOString().split('T')[0];
+  // Fecha de hoy en hora local (Ecuador), no en UTC: después de las 7 pm toISOString daba mañana.
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
   const [tipo, setTipo] = useState<'pago' | 'devolucion'>('pago');
   const [monto, setMonto] = useState('');
@@ -29,11 +31,28 @@ export default function PaymentModal({ ordenId, saldoActual, onClose, onSaved }:
   const [urlComprobante, setUrlComprobante] = useState('');
   const [notas, setNotas] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [cuentas, setCuentas] = useState<Cuenta[]>([]);
+  const [cuenta, setCuenta] = useState('');
+
+  useEffect(() => {
+    api.getCuentas()
+      .then(cs => setCuentas(cs.filter(c => c.tipo === 'BANCO' || c.tipo === 'EFECTIVO')))
+      .catch(() => setCuentas([]));
+  }, []);
+
+  // Para pagos se muestran primero las cuentas que reciben pagos de clientas (y efectivo);
+  // para devoluciones, todas.
+  const recibenPagos = cuentas.filter(c => c.tipo === 'EFECTIVO' || /recibe pagos/i.test(c.uso));
+  const cuentasVisibles = tipo === 'pago' && recibenPagos.length > 0 ? recibenPagos : cuentas;
+
+  // 'Crédito aplicado' no mueve plata: no pide cuenta
+  const pideCuenta = metodo !== 'Crédito aplicado' && metodo !== 'Devolución (crédito)';
 
   const metodos = tipo === 'pago' ? METODOS_PAGO : METODOS_DEVOLUCION;
 
   function cambiarTipo(nuevo: 'pago' | 'devolucion') {
     setTipo(nuevo);
+    setCuenta('');
     setMetodo(nuevo === 'pago' ? 'Transferencia' : 'Devolución (transferencia)');
   }
 
@@ -51,6 +70,10 @@ export default function PaymentModal({ ordenId, saldoActual, onClose, onSaved }:
       alert('Ingresa un monto válido (mayor a 0)');
       return;
     }
+    if (pideCuenta && cuentasVisibles.length > 0 && !cuenta) {
+      alert(tipo === 'pago' ? 'Elige a qué cuenta llegó la plata' : 'Elige de qué cuenta salió la devolución');
+      return;
+    }
     const user = auth.getUser();
     if (!user) return;
 
@@ -65,6 +88,7 @@ export default function PaymentModal({ ordenId, saldoActual, onClose, onSaved }:
         metodo,
         urlComprobante: urlComprobante.trim(),
         notas: notas.trim(),
+        cuenta: pideCuenta ? cuenta : '',
       }, user.usuario);
       onSaved({
         ORDEN_ID: ordenId,
@@ -152,6 +176,30 @@ export default function PaymentModal({ ordenId, saldoActual, onClose, onSaved }:
               {metodos.map(m => <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
+          {pideCuenta && cuentasVisibles.length > 0 && (
+            <div style={{ background: 'var(--amber-bg)', borderRadius: 6, padding: 12 }}>
+              <div style={{ fontSize: 11, color: 'var(--text-soft)', textTransform: 'uppercase', marginBottom: 8, fontWeight: 600 }}>
+                {tipo === 'pago' ? '¿A qué cuenta llegó?' : '¿De qué cuenta salió?'}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+                {cuentasVisibles.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setCuenta(c.id)}
+                    style={{
+                      minHeight: 44, padding: '6px 10px', borderRadius: 100, fontSize: 13, cursor: 'pointer',
+                      border: `1px solid ${cuenta === c.id ? 'var(--text)' : 'var(--border)'}`,
+                      background: cuenta === c.id ? 'var(--text)' : 'var(--surface)',
+                      color: cuenta === c.id ? 'var(--surface)' : 'var(--text)',
+                    }}
+                  >
+                    {c.nombre}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div>
             <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>URL comprobante (opcional)</label>
             <input className="input" value={urlComprobante} onChange={(e) => setUrlComprobante(e.target.value)} placeholder="Link de la captura…" style={{ marginTop: 4 }} />
