@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   api,
+  type Cuenta,
   PedidoItemsCourier,
   LotePendienteCourier,
 } from '@/lib/api';
@@ -30,6 +31,11 @@ export default function CargarCourierPage() {
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState('');
 
+  // Con qué se pagó el courier ('' = automático: ScrubMe #2)
+  const [cuentasPago, setCuentasPago] = useState<Cuenta[]>([]);
+  const [cuentaElegida, setCuentaElegida] = useState('');
+  const cuentaPago = cuentaElegida || cuentasPago.find(c => c.nombre.includes('#2'))?.id || cuentasPago[0]?.id || '';
+
   useEffect(() => {
     const user = auth.getUser();
     if (!user) { router.replace('/login'); return; }
@@ -37,7 +43,10 @@ export default function CargarCourierPage() {
     // Se calcula aquí (solo en el navegador) para evitar un mismatch de
     // hydration entre el servidor (UTC) y el cliente (Ecuador) — este
     // campo SÍ se muestra en pantalla (input de fecha de llegada).
-    setFecha(new Date().toISOString().split('T')[0]);
+    setFecha((() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })());
+    api.getCuentas()
+      .then(cs => setCuentasPago(cs.filter(c => ['BANCO', 'EFECTIVO', 'TARJETA'].includes(c.tipo))))
+      .catch(() => setCuentasPago([]));
     load();
   }, [router]);
 
@@ -103,6 +112,7 @@ export default function CargarCourierPage() {
         lotes: lotesElegidos.map(l => ({ loteId: l.LOTE_ID, cantInicial: l.CANT_INICIAL })),
         costoCourier: costoNum,
         fecha,
+        cuentaPago,
       }, user.usuario);
 
       setToast(`✅ Courier ${fmtMoney(costoNum)} repartido entre ${totalItems} piezas`);
@@ -146,6 +156,14 @@ export default function CargarCourierPage() {
               <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Costo total courier ($)</label>
               <input type="number" step="0.01" className="input" value={costoCourier} onChange={(e) => setCostoCourier(e.target.value)} placeholder="0.00" style={{ marginTop: 4 }} />
             </div>
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Pagado con</label>
+            <select className="input" value={cuentaPago} onChange={(e) => setCuentaElegida(e.target.value)} style={{ marginTop: 4, maxWidth: 360 }}>
+              {cuentasPago.length === 0 && <option value="">(sin cuentas: se guarda sin cuenta)</option>}
+              {cuentasPago.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </select>
+            <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 4 }}>Normalmente sale de ScrubMe #2.</div>
           </div>
         </div>
 
