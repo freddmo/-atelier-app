@@ -263,9 +263,9 @@ export default function CargarFacturaPage() {
         </div>
 
         {/* 1. DATOS DE FACTURA */}
-        <div className="card" style={{ padding: 28, marginBottom: 20 }}>
+        <div className="card m-pad" style={{ padding: 28, marginBottom: 20 }}>
           <h3 style={{ margin: '0 0 20px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>1. Datos de la factura</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 16 }}>
+          <div className="m-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 16 }}>
             <div>
               <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>N° Factura</label>
               <input className="input" placeholder="33027108" value={numFactura} onChange={(e) => setNumFactura(e.target.value)} style={{ marginTop: 4 }} />
@@ -286,7 +286,7 @@ export default function CargarFacturaPage() {
         </div>
 
         {/* 2. ITEMS DE PEDIDO */}
-        <div className="card" style={{ padding: 28, marginBottom: 20 }}>
+        <div className="card m-pad" style={{ padding: 28, marginBottom: 20 }}>
           <h3 style={{ margin: '0 0 6px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
             2. Items para pedidos · <span className="tabular">{itemsPedido.length}</span> seleccionados
           </h3>
@@ -370,7 +370,7 @@ export default function CargarFacturaPage() {
         </div>
 
         {/* 3. ITEMS DE STOCK */}
-        <div className="card" style={{ padding: 28, marginBottom: 20 }}>
+        <div className="card m-pad" style={{ padding: 28, marginBottom: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
             <h3 style={{ margin: 0, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
               3. Items para stock · <span className="tabular">{itemsStock.length}</span>
@@ -390,7 +390,7 @@ export default function CargarFacturaPage() {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {itemsStock.map(item => (
-                <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.7fr 1fr 1fr 0.6fr 0.9fr auto', gap: 8, alignItems: 'end', padding: '10px 14px', background: 'var(--bg)', borderRadius: 4 }}>
+                <div key={item.id} className="m-2col-first" style={{ display: 'grid', gridTemplateColumns: '2.4fr 0.7fr 1fr 1fr 0.6fr 0.9fr auto', gap: 8, alignItems: 'end', padding: '10px 14px', background: 'var(--bg)', borderRadius: 4 }}>
                   <div>
                     <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>SKU</label>
                     <select
@@ -476,7 +476,7 @@ export default function CargarFacturaPage() {
 
         {/* 4. TOTALES + PREVIEW */}
         {totalItems > 0 && (
-          <div className="card" style={{ padding: 28, marginBottom: 20, background: 'linear-gradient(to right, rgba(184,149,78,0.04), transparent)', borderColor: 'var(--gold)' }}>
+          <div className="card m-pad" style={{ padding: 28, marginBottom: 20, background: 'linear-gradient(to right, rgba(184,149,78,0.04), transparent)', borderColor: 'var(--gold)' }}>
             <h3 style={{ margin: '0 0 16px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--gold)' }}>
               4. Resumen y preview
             </h3>
