@@ -115,7 +115,7 @@ export default function PedidosPage() {
           ))}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: 12, marginBottom: 20 }}>
+        <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 200px', gap: 12, marginBottom: 20 }}>
           <input className="input" placeholder="Buscar clienta, ID, ciudad o courier…" value={search} onChange={(e) => setSearch(e.target.value)} />
           <select className="input" value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)}>
             <option value="todos">Todos los estados</option>
