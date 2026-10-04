@@ -1,7 +1,7 @@
 // app/reportes/page.tsx
 // Filtros (fecha de pedido, cliente, ciudad, color) + conteo de lo filtrado:
 // qué clientes, ciudades, colores, tallas (con largo) y modelos se piden más.
-// Las tallas y modelos se filtran tocándolos en su lista.
+// Talla y color tienen su selector; el modelo se filtra tocándolo en su lista.
 // Todo se calcula en el navegador a partir de api.getPedidos().
 
 'use client';
@@ -216,6 +216,25 @@ export default function ReportesPage() {
     return [...s].sort();
   }, [filas]);
 
+  const opcionesModelo = useMemo(() => {
+    const s = new Set<string>();
+    filas.forEach((f) => f.prendas.forEach((p) => s.add(p.modelo)));
+    return [...s].sort((a, b) => a.localeCompare(b));
+  }, [filas]);
+
+  // Tallas en orden de tamaño (XXS → 3XL) y luego por largo
+  const opcionesTalla = useMemo(() => {
+    const ORDEN = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', '4XL'];
+    const LARGO = ['Petite', 'Regular', 'Tall'];
+    const s = new Set<string>();
+    filas.forEach((f) => f.prendas.forEach((p) => s.add(p.talla)));
+    const pos = (arr: string[], v: string) => { const i = arr.indexOf(v); return i === -1 ? 99 : i; };
+    return [...s].sort((a, b) => {
+      const [ta, la] = a.split(' · '); const [tb, lb] = b.split(' · ');
+      return pos(ORDEN, ta) - pos(ORDEN, tb) || ta.localeCompare(tb) || pos(LARGO, la) - pos(LARGO, lb) || a.localeCompare(b);
+    });
+  }, [filas]);
+
   // Aplicar filtros. Con filtro de color, solo cuentan las prendas de ese color.
   const filtrados = useMemo(() => {
     const busca = clave(cliente);
@@ -327,6 +346,20 @@ export default function ReportesPage() {
                 {opcionesColor.map((c) => <option key={c} value={c}>{titulo(c)}</option>)}
               </select>
             </div>
+            <div>
+              <label style={labelStyle}>Talla</label>
+              <select className="input" value={talla} onChange={(e) => setTalla(e.target.value)} style={{ marginTop: 4, width: '100%' }}>
+                <option value="">Todas</option>
+                {opcionesTalla.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Modelo</label>
+              <select className="input" value={modelo} onChange={(e) => setModelo(e.target.value)} style={{ marginTop: 4, width: '100%' }}>
+                <option value="">Todos</option>
+                {opcionesModelo.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 14 }}>
@@ -356,21 +389,10 @@ export default function ReportesPage() {
               {desde || hasta
                 ? <>Pedidos hechos {desde ? `desde el ${fmtDate(desde)}` : ''} {hasta ? `hasta el ${fmtDate(hasta)}` : ''}</>
                 : <>Todos los pedidos</>}
-              {color && <> · solo prendas color {titulo(color)}</>}
+              {(color || talla || modelo) && <> · solo prendas {[color && `color ${titulo(color)}`, talla && `talla ${talla}`, modelo && `modelo ${modelo}`].filter(Boolean).join(', ')}</>}
+              {talla && <> · talla {talla}</>}
               {' '}· sin contar cancelados
             </p>
-            {(talla || modelo) && (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '-4px 0 12px' }}>
-                {[{ k: 'Talla', v: talla, quitar: () => setTalla('') }, { k: 'Modelo', v: modelo, quitar: () => setModelo('') }]
-                  .filter((x) => x.v)
-                  .map((x) => (
-                    <button key={x.k} onClick={x.quitar} aria-label={`Quitar filtro ${x.k}`}
-                      style={{ minHeight: 40, padding: '0 14px', borderRadius: 100, border: '1px solid var(--text)', background: 'var(--text)', color: 'var(--surface)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
-                      {x.k}: {x.v} ✕
-                    </button>
-                  ))}
-              </div>
-            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 1, background: 'var(--border)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', marginBottom: 20 }}>
               {[
                 { l: 'Pedidos', v: resumen.pedidos },
