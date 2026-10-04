@@ -1,6 +1,7 @@
 // app/reportes/page.tsx
 // Filtros (fecha de pedido, cliente, ciudad, color) + conteo de lo filtrado:
-// qué clientes piden más, qué ciudades piden más, qué colores se piden más.
+// qué clientes, ciudades, colores, tallas (con largo) y modelos se piden más.
+// Las tallas y modelos se filtran tocándolos en su lista.
 // Todo se calcula en el navegador a partir de api.getPedidos().
 
 'use client';
@@ -12,7 +13,10 @@ import { auth } from '@/lib/auth';
 import Navbar from '@/components/Navbar';
 
 // Solo los campos que esta página usa (vienen de enrichOrden en el backend).
-type ItemRaw = { COLOR?: unknown; CANTIDAD?: unknown; ESTATUS_ITEM?: unknown };
+type ItemRaw = {
+  COLOR?: unknown; CANTIDAD?: unknown; ESTATUS_ITEM?: unknown;
+  TALLA?: unknown; LONGITUD?: unknown; NOMBRE_PRODUCTO?: unknown; SKU?: unknown;
+};
 type PedidoRaw = {
   ORDEN_ID?: unknown;
   NOMBRE?: unknown;
@@ -29,7 +33,7 @@ type Fila = {
   ciudad: string;
   ciudadKey: string;
   fecha: string;
-  prendas: { color: string; cantidad: number }[];
+  prendas: { color: string; talla: string; modelo: string; cantidad: number }[];
 };
 
 const str = (v: unknown) => (v === null || v === undefined ? '' : String(v)).trim();
@@ -134,6 +138,8 @@ export default function ReportesPage() {
   const [cliente, setCliente] = useState('');      // texto libre
   const [ciudad, setCiudad] = useState('');        // clave de ciudad
   const [color, setColor] = useState('');          // color en MAYÚSCULAS
+  const [talla, setTalla] = useState('');          // ej. "M · Tall" (se elige tocando la lista)
+  const [modelo, setModelo] = useState('');        // nombre del modelo (se elige tocando la lista)
   const [verPedidos, setVerPedidos] = useState(false);
 
   useEffect(() => {
@@ -157,6 +163,8 @@ export default function ReportesPage() {
           .filter((it) => str(it.ESTATUS_ITEM).toUpperCase() !== 'CANCELADO')
           .map((it) => ({
             color: str(it.COLOR).toUpperCase() || 'SIN COLOR',
+            talla: `${str(it.TALLA).toUpperCase() || 'SIN TALLA'} · ${titulo(str(it.LONGITUD) || 'Regular')}`,
+            modelo: titulo(str(it.NOMBRE_PRODUCTO) || str(it.SKU) || 'Sin modelo'),
             cantidad: Number(it.CANTIDAD) || 1,
           }));
         if (prendas.length === 0) return;
@@ -192,7 +200,7 @@ export default function ReportesPage() {
   }
 
   function limpiar() {
-    setCliente(''); setCiudad(''); setColor('');
+    setCliente(''); setCiudad(''); setColor(''); setTalla(''); setModelo('');
   }
 
   // Opciones de los selectores (de TODOS los pedidos, para que no desaparezcan al filtrar)
@@ -215,10 +223,12 @@ export default function ReportesPage() {
       .filter((f) => (!desde || (f.fecha && f.fecha >= desde)) && (!hasta || (f.fecha && f.fecha <= hasta)))
       .filter((f) => !busca || f.clienteKey.includes(busca))
       .filter((f) => !ciudad || f.ciudadKey === ciudad)
-      .map((f) => (color ? { ...f, prendas: f.prendas.filter((p) => p.color === color) } : f))
+      .map((f) => (color || talla || modelo
+        ? { ...f, prendas: f.prendas.filter((p) => (!color || p.color === color) && (!talla || p.talla === talla) && (!modelo || p.modelo === modelo)) }
+        : f))
       .filter((f) => f.prendas.length > 0)
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
-  }, [filas, desde, hasta, cliente, ciudad, color]);
+  }, [filas, desde, hasta, cliente, ciudad, color, talla, modelo]);
 
   const totalPrendas = (f: Fila) => f.prendas.reduce((s, p) => s + p.cantidad, 0);
 
@@ -226,6 +236,12 @@ export default function ReportesPage() {
     const porCliente = new Map<string, { label: string; pedidos: number; prendas: number }>();
     const porCiudad = new Map<string, { label: string; pedidos: number; prendas: number }>();
     const porColor = new Map<string, { prendas: number; pedidos: Set<string> }>();
+    const porTalla = new Map<string, { prendas: number; pedidos: Set<string> }>();
+    const porModelo = new Map<string, { prendas: number; pedidos: Set<string> }>();
+    const sumar = (m: Map<string, { prendas: number; pedidos: Set<string> }>, k: string, n: number, id: string) => {
+      const x = m.get(k) || { prendas: 0, pedidos: new Set<string>() };
+      x.prendas += n; x.pedidos.add(id); m.set(k, x);
+    };
     let prendas = 0;
 
     filtrados.forEach((f) => {
@@ -239,8 +255,9 @@ export default function ReportesPage() {
       ci.pedidos++; ci.prendas += n; porCiudad.set(f.ciudadKey, ci);
 
       f.prendas.forEach((p) => {
-        const co = porColor.get(p.color) || { prendas: 0, pedidos: new Set<string>() };
-        co.prendas += p.cantidad; co.pedidos.add(f.id); porColor.set(p.color, co);
+        sumar(porColor, p.color, p.cantidad, f.id);
+        sumar(porTalla, p.talla, p.cantidad, f.id);
+        sumar(porModelo, p.modelo, p.cantidad, f.id);
       });
     });
 
@@ -258,13 +275,19 @@ export default function ReportesPage() {
       rankingCiudades: [...porCiudad.entries()]
         .map(([key, v]) => ({ key, label: v.label, valor: v.pedidos, extra: plural(v.prendas, 'prenda', 'prendas') }))
         .sort(orden),
+      rankingTallas: [...porTalla.entries()]
+        .map(([key, v]) => ({ key, label: key, valor: v.prendas, extra: plural(v.pedidos.size, 'pedido', 'pedidos') }))
+        .sort(orden),
+      rankingModelos: [...porModelo.entries()]
+        .map(([key, v]) => ({ key, label: key, valor: v.prendas, extra: plural(v.pedidos.size, 'pedido', 'pedidos') }))
+        .sort(orden),
       rankingColores: [...porColor.entries()]
         .map(([key, v]) => ({ key, label: titulo(key), valor: v.prendas, extra: plural(v.pedidos.size, 'pedido', 'pedidos') }))
         .sort(orden),
     };
   }, [filtrados]);
 
-  const hayFiltros = !!(cliente || ciudad || color);
+  const hayFiltros = !!(cliente || ciudad || color || talla || modelo);
   const labelStyle: React.CSSProperties = { fontSize: 12, color: 'var(--text-soft)' };
 
   return (
@@ -313,7 +336,7 @@ export default function ReportesPage() {
             <button className="btn" style={{ padding: '6px 12px', fontSize: 12 }} onClick={() => rangoRapido('todo')}>Desde siempre</button>
             {hayFiltros && (
               <button className="btn" style={{ padding: '6px 12px', fontSize: 12, marginLeft: 'auto' }} onClick={limpiar}>
-                Quitar filtros de cliente, ciudad y color
+                Quitar todos los filtros
               </button>
             )}
           </div>
@@ -336,6 +359,18 @@ export default function ReportesPage() {
               {color && <> · solo prendas color {titulo(color)}</>}
               {' '}· sin contar cancelados
             </p>
+            {(talla || modelo) && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '-4px 0 12px' }}>
+                {[{ k: 'Talla', v: talla, quitar: () => setTalla('') }, { k: 'Modelo', v: modelo, quitar: () => setModelo('') }]
+                  .filter((x) => x.v)
+                  .map((x) => (
+                    <button key={x.k} onClick={x.quitar} aria-label={`Quitar filtro ${x.k}`}
+                      style={{ minHeight: 40, padding: '0 14px', borderRadius: 100, border: '1px solid var(--text)', background: 'var(--text)', color: 'var(--surface)', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      {x.k}: {x.v} ✕
+                    </button>
+                  ))}
+              </div>
+            )}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 1, background: 'var(--border)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', marginBottom: 20 }}>
               {[
                 { l: 'Pedidos', v: resumen.pedidos },
@@ -359,6 +394,8 @@ export default function ReportesPage() {
               />
               <Ranking titulo="Ciudades" unidad="pedidos" filas={resumen.rankingCiudades} activo={ciudad} onElegir={setCiudad} />
               <Ranking titulo="Colores" unidad="prendas" filas={resumen.rankingColores} activo={color} onElegir={setColor} />
+              <Ranking titulo="Tallas" unidad="prendas" filas={resumen.rankingTallas} activo={talla} onElegir={setTalla} />
+              <Ranking titulo="Modelos" unidad="prendas" filas={resumen.rankingModelos} activo={modelo} onElegir={setModelo} />
             </div>
 
             {/* ================= PEDIDOS (plegado) ================= */}
@@ -376,7 +413,7 @@ export default function ReportesPage() {
                           <th style={{ padding: '8px 10px', fontWeight: 500 }}>Fecha</th>
                           <th style={{ padding: '8px 10px', fontWeight: 500 }}>Cliente</th>
                           <th style={{ padding: '8px 10px', fontWeight: 500 }}>Ciudad</th>
-                          <th style={{ padding: '8px 10px', fontWeight: 500 }}>Colores</th>
+                          <th style={{ padding: '8px 10px', fontWeight: 500 }}>Prendas</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -388,7 +425,7 @@ export default function ReportesPage() {
                             <td style={{ padding: '10px' }}>{f.cliente}</td>
                             <td style={{ padding: '10px', color: 'var(--text-soft)' }}>{f.ciudad}</td>
                             <td style={{ padding: '10px', color: 'var(--text-soft)' }}>
-                              {f.prendas.map((p) => `${titulo(p.color)}${p.cantidad > 1 ? ` ×${p.cantidad}` : ''}`).join(', ')}
+                              {f.prendas.map((p) => `${p.modelo} ${p.talla} ${titulo(p.color)}${p.cantidad > 1 ? ` ×${p.cantidad}` : ''}`).join(', ')}
                             </td>
                           </tr>
                         ))}
