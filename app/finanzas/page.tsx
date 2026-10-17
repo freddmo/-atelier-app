@@ -875,10 +875,12 @@ function CuentasTab({ fin }: { fin: FinanzasCuentas | null }) {
         <Fila label="Bancos" valor={c.bancos} />
         <Fila label="+ Stock" valor={c.stock} />
         <Fila label="+ Materiales guardados" valor={c.materiales} />
-        <Fila label="+ Pedidos en curso (costo)" valor={c.pedidosEnCurso} />
         <Fila label="+ Lo que deben las clientas" valor={c.porCobrar} />
         <Fila label="+ Deuda personal de socios" valor={c.deudaSocios} />
         <Fila label="− Tarjetas" valor={-c.tarjetas} />
+        <p style={{ ...T.sub, margin: '10px 0 0', lineHeight: 1.5 }}>
+          Además hay {money(c.pedidosEnCurso)} invertidos en pedidos que aún no se entregan. No se suman aparte: esas prendas son de las clientas y su valor ya está en lo que te deben.
+        </p>
       </div>
     </div>
   );
