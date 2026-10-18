@@ -145,7 +145,7 @@ function str(v: unknown): string {
 // Bloque de info del cliente (dirección, teléfono, cédula/RUC, industria) + chips de TODOS los ítems
 // Campo libre de courier — solo informativo, guarda al salir del campo o
 // al presionar Enter. No afecta costos ni lógica de envío.
-function CourierInput({ ordenId, valorInicial }: { ordenId: string; valorInicial: string }) {
+export function CourierInput({ ordenId, valorInicial }: { ordenId: string; valorInicial: string }) {
   const [valor, setValor] = useState(valorInicial);
   const [guardando, setGuardando] = useState(false);
 
@@ -190,7 +190,7 @@ function CourierInput({ ordenId, valorInicial }: { ordenId: string; valorInicial
 // del campo, sin ningún botón. Arranca colapsada si está vacía, para no
 // ocupar espacio de más en cards que no la necesitan.
 const NOTA_MAX = 400;
-function NotaBodegaInput({ ordenId, valorInicial }: { ordenId: string; valorInicial: string }) {
+export function NotaBodegaInput({ ordenId, valorInicial }: { ordenId: string; valorInicial: string }) {
   const [valor, setValor] = useState(valorInicial);
   const [editando, setEditando] = useState(!!valorInicial);
   const [guardando, setGuardando] = useState(false);
@@ -281,6 +281,24 @@ function VerificarInfoCliente({ pedido }: { pedido: Pedido }) {
   );
 }
 
+// Agrupa las prendas por la factura FIGS con la que se compraron.
+// Las de stock dicen además de qué lote salieron; las que aún no tienen factura van aparte.
+type ItemConFactura = { FACTURA?: string; LOTE?: string };
+function gruposPorFactura(items: Pedido['items']) {
+  const grupos: { titulo: string; pendiente: boolean; items: Pedido['items'] }[] = [];
+  items.forEach(it => {
+    const f = str((it as ItemConFactura).FACTURA);
+    const lote = str((it as ItemConFactura).LOTE);
+    const titulo = lote
+      ? `Stock · ${lote}${f ? ` · Factura ${f}` : ''}`
+      : f ? `Factura ${f}` : 'Sin factura todavía';
+    let g = grupos.find(x => x.titulo === titulo);
+    if (!g) { g = { titulo, pendiente: !f && !lote, items: [] }; grupos.push(g); }
+    g.items.push(it);
+  });
+  return grupos;
+}
+
 function CardExtra({ pedido }: { pedido: Pedido }) {
   const items = (pedido.items || []).filter(
     it => String((it as any).ESTATUS_ITEM || '').toUpperCase().trim() !== 'CANCELADO'
@@ -299,9 +317,18 @@ function CardExtra({ pedido }: { pedido: Pedido }) {
       <VerificarInfoCliente pedido={pedido} />
 
       {items.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {items.map((it, i) => (
-            <ItemChip key={i} nombre={shortName(it as any)} talla={(it as any).TALLA} longitud={(it as any).LONGITUD} color={(it as any).COLOR} />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {gruposPorFactura(items).map(g => (
+            <div key={g.titulo}>
+              <div style={{ fontSize: 10, color: g.pendiente ? 'var(--amber)' : 'var(--text-faint)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                {g.titulo}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {g.items.map((it, i) => (
+                  <ItemChip key={i} nombre={shortName(it as any)} talla={(it as any).TALLA} longitud={(it as any).LONGITUD} color={(it as any).COLOR} />
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       )}
