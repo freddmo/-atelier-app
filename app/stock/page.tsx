@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { api, LoteStock, LoteEnCamino, Courier, Combo } from '@/lib/api';
+import { api, LoteStock, LoteEnCamino, Combo } from '@/lib/api';
 import { auth } from '@/lib/auth';
 import Navbar from '@/components/Navbar';
 
@@ -23,24 +23,6 @@ function fmtMoney(n: number) {
 function fmtDate(d: string) {
   if (!d) return '—';
   return new Date(d + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-function fmtShort(d: string) {
-  if (!d) return '';
-  return new Date(d + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-}
-
-function fmtEta(eta: { fechaMin: string; fechaMax: string } | null) {
-  if (!eta || (!eta.fechaMin && !eta.fechaMax)) return null;
-  return `${fmtShort(eta.fechaMin)} – ${fmtShort(eta.fechaMax)}`;
-}
-
-function estadoColor(e: string) {
-  const k = (e || '').toUpperCase();
-  if (k === 'EN TRANSITO A FL') return 'var(--amber)';
-  if (k === 'EN BODEGA FL') return '#6b8cce';
-  if (k === 'EN CAMINO A EC') return 'var(--gold)';
-  return 'var(--text-soft)';
 }
 
 // ===== RECUADRO DE COLOR + EDITOR (solo admin edita) =====
@@ -450,7 +432,6 @@ export default function StockPage() {
   const router = useRouter();
   const [lotes, setLotes] = useState<LoteStock[]>([]);
   const [enCamino, setEnCamino] = useState<LoteEnCamino[]>([]);
-  const [couriers, setCouriers] = useState<Courier[]>([]);
   const [combos, setCombos] = useState<Combo[]>([]);
   // Fotos temporales por tarjeta (clave = LOTE_ID o COMBO_ID) — solo viven en
   // memoria del navegador, nunca se guardan. Se pierden si recargas la página.
@@ -475,14 +456,8 @@ export default function StockPage() {
   const [savingCombo, setSavingCombo] = useState(false);
   const [deletingCombo, setDeletingCombo] = useState('');
 
-  // Acciones admin (lotes en camino)
-  const [working, setWorking] = useState('');
-  const [despacharId, setDespacharId] = useState('');
-  const [despCourier, setDespCourier] = useState('');
-  const [despFecha, setDespFecha] = useState('');
   const [fechaHoy, setFechaHoy] = useState('');
 
-  const todayISO = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
     const user = auth.getUser();
@@ -499,16 +474,14 @@ export default function StockPage() {
     setLoading(true);
     setError('');
     try {
-      const [disp, camino, cours, combs, mats] = await Promise.all([
+      const [disp, camino, combs, mats] = await Promise.all([
         api.getStockDisponible(),
         api.getLotesEnCamino(),
-        api.getCouriers().catch(() => [] as Courier[]),
         api.getCombos().catch(() => [] as Combo[]),
         api.getMateriales().catch(() => ({ empaque: [], regalos: [] })),
       ]);
       setLotes(disp);
       setEnCamino(camino);
-      setCouriers(cours);
       setCombos(combs);
       setMateriales(mats);
     } catch (err) {
@@ -579,11 +552,6 @@ export default function StockPage() {
     ));
   }
   
-  const couriersActivos = couriers.filter(c => {
-    const a = String(c.ACTIVA).toUpperCase().trim();
-    return a !== 'FALSE' && a !== 'NO' && a !== '0';
-  });
-
   const lotesEnCombos = new Set<string>();
   combos.forEach(c => {
     lotesEnCombos.add(c.superior.LOTE_ID);
@@ -644,27 +612,6 @@ export default function StockPage() {
     }
   }
 
-  async function doAccion(loteId: string, accion: 'LLEGO_FL' | 'DESPACHAR_EC' | 'LLEGO_EC', courier = '', fechaSalida = '') {
-    const user = auth.getUser();
-    if (!user) return;
-    setWorking(loteId);
-    try {
-      await api.avanzarLote({ loteId, accion, courier, fechaSalida }, user.usuario);
-      setDespacharId('');
-      await load();
-    } catch (err) {
-      alert('Error: ' + (err instanceof Error ? err.message : 'desconocido'));
-    } finally {
-      setWorking('');
-    }
-  }
-
-  function openDespachar(loteId: string) {
-    setDespacharId(loteId);
-    setDespFecha(todayISO);
-    setDespCourier(couriersActivos.length > 0 ? couriersActivos[0].COURIER : '');
-  }
-
   function setFoto(id: string, url: string) {
     setFotos(prev => ({ ...prev, [id]: url }));
   }
@@ -690,12 +637,6 @@ export default function StockPage() {
     } finally {
       setBorrarLoteId(null);
     }
-  }
-
-  function confirmDespachar(loteId: string) {
-    if (!despCourier) { alert('Elige un courier'); return; }
-    if (!despFecha) { alert('Elige la fecha de salida'); return; }
-    doAccion(loteId, 'DESPACHAR_EC', despCourier, despFecha);
   }
 
   const totalPiezas = lotesLibres.reduce((s, l) => s + l.CANT_DISPONIBLE, 0);
@@ -988,7 +929,6 @@ export default function StockPage() {
                     </h3>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 28 }}>
                       {combos.map(c => {
-                        const eta = fmtEta(c.eta);
                         const hexSup = c.superior.COLOR_HEX || '';
                         const hexInf = c.inferior.COLOR_HEX || '';
                         const mismoColor = String(c.superior.COLOR || '').toUpperCase().trim() === String(c.inferior.COLOR || '').toUpperCase().trim();
@@ -1035,13 +975,17 @@ export default function StockPage() {
                                 )}
                               </span>
                               <span>
-                                {c.enCamino ? `🚚 En camino${eta ? ` · llega ${eta}` : ''}` : 'Conjunto · listo'}
+                                {c.enCamino ? '🚚 En camino a Ecuador' : 'Conjunto · en bodega'}
                               </span>
+                            </div>
+                            <div className="tabular" style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 12, color: 'var(--text-soft)', marginBottom: 10 }}>
+                              <span>Hay <strong style={{ color: 'var(--text)' }}>{c.cantidad ?? 1}</strong> conjunto{(c.cantidad ?? 1) === 1 ? '' : 's'}</span>
+                              {isAdmin && c.costoSet !== undefined && (
+                                <span>Costo del conjunto <strong style={{ color: 'var(--text)' }}>{fmtMoney(c.costoSet)}</strong></span>
+                              )}
                             </div>
 
                             {[c.superior, c.inferior].map((p, i) => {
-                              const estado = String(p.ESTADO_VIAJE || '').toUpperCase();
-                              const enDespacho = despacharId === p.LOTE_ID;
                               return (
                                 <div key={p.LOTE_ID} style={{ marginBottom: i === 0 ? 8 : 0 }}>
                                   {i === 1 && <div style={{ fontSize: 13, color: c.enCamino ? 'var(--amber)' : 'var(--gold)', margin: '2px 0' }}>+</div>}
@@ -1051,56 +995,11 @@ export default function StockPage() {
                                     <span>{p.TALLA} · {p.LONGITUD} · {p.COLOR}</span>
                                   </div>
 
-                                  {p.enCamino && (
-                                    <div style={{ marginTop: 6 }}>
-                                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: estadoColor(estado), marginBottom: isAdmin ? 6 : 0 }}>
-                                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: estadoColor(estado) }} />
-                                        {p.ESTADO_VIAJE}
-                                      </span>
-
-                                      {isAdmin && !enDespacho && (
-                                        <div className="print-hide">
-                                          {estado === 'EN TRANSITO A FL' && (
-                                            <button className="btn" onClick={() => doAccion(p.LOTE_ID, 'LLEGO_FL')} disabled={working === p.LOTE_ID} style={{ padding: '4px 10px', fontSize: 11 }}>
-                                              {working === p.LOTE_ID ? '…' : 'Llegó a FL'}
-                                            </button>
-                                          )}
-                                          {estado === 'EN BODEGA FL' && (
-                                            <button className="btn btn-primary" onClick={() => openDespachar(p.LOTE_ID)} disabled={working === p.LOTE_ID} style={{ padding: '4px 10px', fontSize: 11 }}>
-                                              Despachar a EC
-                                            </button>
-                                          )}
-                                          {estado === 'EN CAMINO A EC' && (
-                                            <button className="btn" onClick={() => doAccion(p.LOTE_ID, 'LLEGO_EC')} disabled={working === p.LOTE_ID} style={{ padding: '4px 10px', fontSize: 11 }}>
-                                              {working === p.LOTE_ID ? '…' : 'Llegó a EC'}
-                                            </button>
-                                          )}
-                                        </div>
-                                      )}
-
-                                      {isAdmin && enDespacho && (
-                                        <div className="print-hide" style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4, padding: 10, background: 'var(--bg)', borderRadius: 4 }}>
-                                          <div>
-                                            <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Courier</label>
-                                            <select className="input" value={despCourier} onChange={(e) => setDespCourier(e.target.value)} style={{ marginTop: 2, padding: '5px 8px', fontSize: 12 }}>
-                                              {couriersActivos.length === 0 && <option value="">(sin couriers)</option>}
-                                              {couriersActivos.map(co => <option key={co.COURIER} value={co.COURIER}>{co.COURIER}</option>)}
-                                            </select>
-                                          </div>
-                                          <div>
-                                            <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Fecha de salida</label>
-                                            <input type="date" className="input" value={despFecha} onChange={(e) => setDespFecha(e.target.value)} style={{ marginTop: 2, padding: '5px 8px', fontSize: 12 }} />
-                                          </div>
-                                          <div style={{ display: 'flex', gap: 6 }}>
-                                            <button className="btn" onClick={() => setDespacharId('')} disabled={working === p.LOTE_ID} style={{ flex: 1, justifyContent: 'center', padding: '5px 8px', fontSize: 11 }}>
-                                              Cancelar
-                                            </button>
-                                            <button className="btn btn-primary" onClick={() => confirmDespachar(p.LOTE_ID)} disabled={working === p.LOTE_ID} style={{ flex: 1, justifyContent: 'center', padding: '5px 8px', fontSize: 11 }}>
-                                              {working === p.LOTE_ID ? '…' : 'Confirmar'}
-                                            </button>
-                                          </div>
-                                        </div>
-                                      )}
+                                  {isAdmin && (
+                                    <div className="print-hide tabular" style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 2 }}>
+                                      {p.COSTO_UNITARIO !== undefined && <>{fmtMoney(p.COSTO_UNITARIO)}</>}
+                                      {p.CANT_DISPONIBLE !== undefined && p.CANT_DISPONIBLE > 1 && <> · ×{p.CANT_DISPONIBLE}</>}
+                                      {p.FACTURA && <> · Factura {p.FACTURA}</>}
                                     </div>
                                   )}
                                 </div>
@@ -1141,8 +1040,8 @@ export default function StockPage() {
                             <ColorSwatch color={l.COLOR} hex={l.COLOR_HEX || ''} isAdmin={isAdmin} onSave={handleSetColor} />
                             <span><span className="mono">{l.TALLA}</span> · {l.LONGITUD} · {l.COLOR}</span>
                           </div>
-                          <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: 'var(--text-faint)' }}>
-                            <span>{fmtDate(l.FECHA_ENTRADA)}</span>
+                          <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 11, color: 'var(--text-faint)' }}>
+                            <span>{fmtDate(l.FECHA_ENTRADA)}{isAdmin && l.FACTURA ? <span className="print-hide"> · Factura {l.FACTURA}</span> : ''}</span>
                             {isAdmin && <span className="mono print-hide">{l.LOTE_ID}</span>}
                           </div>
                           {isAdmin && (
@@ -1184,76 +1083,29 @@ export default function StockPage() {
                 ) : (
                   <div className="print-hide" style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
                     {caminoLibres.map(l => {
-                      const estado = String(l.ESTADO_VIAJE || '').toUpperCase();
-                      const eta = fmtEta(l.eta);
-                      const enDespacho = despacharId === l.LOTE_ID;
                       return (
-                        <div key={l.LOTE_ID} className="card" style={{ padding: 16, display: 'flex', gap: 14, alignItems: 'flex-start', borderColor: estadoColor(estado) }}>
+                        <div key={l.LOTE_ID} className="card" style={{ padding: 16, display: 'flex', gap: 14, alignItems: 'flex-start', borderColor: 'var(--amber)' }}>
                           <FotoUpload id={l.LOTE_ID} url={fotos[l.LOTE_ID]} onChange={setFoto} />
                           <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: estadoColor(estado), textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: estadoColor(estado) }} />
-                            🚚 {l.ESTADO_VIAJE}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 10, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--amber)' }} />
+                            🚚 En camino a Ecuador
                           </div>
                           <div className="display" style={{ fontSize: 15, marginBottom: 3 }}>{l.NOMBRE_PRODUCTO}</div>
                           <div style={{ fontSize: 12, color: 'var(--text-soft)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                             <ColorSwatch color={l.COLOR} hex={(l as any).COLOR_HEX || ''} isAdmin={isAdmin} onSave={handleSetColor} />
                             <span><span className="mono">{l.TALLA}</span> · {l.LONGITUD} · {l.COLOR}{l.CANT_DISPONIBLE > 1 ? ` · ×${l.CANT_DISPONIBLE}` : ''}</span>
                           </div>
-                          <div style={{ fontSize: 12, marginBottom: 10 }}>
-                            {eta ? (
-                              <span className="tabular" style={{ color: 'var(--gold)', fontWeight: 500 }}>Llega {eta}</span>
-                            ) : (
-                              <span style={{ color: 'var(--text-faint)' }}>Por despachar</span>
-                            )}
-                          </div>
                           {isAdmin && (
                             <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 10 }}>
                               <span className="mono">{l.LOTE_ID}</span>
-                              {l.TRACKING ? <> · {l.TRANSPORTE || ''} {l.TRACKING}</> : ''}
+                              {l.FACTURA ? <> · Factura {l.FACTURA}</> : ''}
                               {' · '}<span className="tabular">{fmtMoney(l.COSTO_UNITARIO)}</span>
                             </div>
                           )}
                           {isAdmin && (
-                            <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: 12 }}>
-                              {estado === 'EN TRANSITO A FL' && (
-                                <button className="btn" onClick={() => doAccion(l.LOTE_ID, 'LLEGO_FL')} disabled={working === l.LOTE_ID} style={{ width: '100%', justifyContent: 'center', padding: '7px 10px', fontSize: 12 }}>
-                                  {working === l.LOTE_ID ? '…' : 'Llegó a FL'}
-                                </button>
-                              )}
-                              {estado === 'EN BODEGA FL' && !enDespacho && (
-                                <button className="btn btn-primary" onClick={() => openDespachar(l.LOTE_ID)} disabled={working === l.LOTE_ID} style={{ width: '100%', justifyContent: 'center', padding: '7px 10px', fontSize: 12 }}>
-                                  Despachar a EC
-                                </button>
-                              )}
-                              {estado === 'EN CAMINO A EC' && (
-                                <button className="btn" onClick={() => doAccion(l.LOTE_ID, 'LLEGO_EC')} disabled={working === l.LOTE_ID} style={{ width: '100%', justifyContent: 'center', padding: '7px 10px', fontSize: 12 }}>
-                                  {working === l.LOTE_ID ? '…' : 'Llegó a EC'}
-                                </button>
-                              )}
-                              {enDespacho && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
-                                  <div>
-                                    <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Courier</label>
-                                    <select className="input" value={despCourier} onChange={(e) => setDespCourier(e.target.value)} style={{ marginTop: 2, padding: '6px 10px', fontSize: 13 }}>
-                                      {couriersActivos.length === 0 && <option value="">(sin couriers)</option>}
-                                      {couriersActivos.map(c => <option key={c.COURIER} value={c.COURIER}>{c.COURIER}</option>)}
-                                    </select>
-                                  </div>
-                                  <div>
-                                    <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Fecha de salida</label>
-                                    <input type="date" className="input" value={despFecha} onChange={(e) => setDespFecha(e.target.value)} style={{ marginTop: 2, padding: '6px 10px', fontSize: 13 }} />
-                                  </div>
-                                  <div style={{ display: 'flex', gap: 8 }}>
-                                    <button className="btn" onClick={() => setDespacharId('')} disabled={working === l.LOTE_ID} style={{ flex: 1, justifyContent: 'center', padding: '6px 10px', fontSize: 12 }}>
-                                      Cancelar
-                                    </button>
-                                    <button className="btn btn-primary" onClick={() => confirmDespachar(l.LOTE_ID)} disabled={working === l.LOTE_ID} style={{ flex: 1, justifyContent: 'center', padding: '6px 10px', fontSize: 12 }}>
-                                      {working === l.LOTE_ID ? '…' : 'Confirmar'}
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
+                            <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: 10, fontSize: 12, color: 'var(--text-soft)' }}>
+                              Pasa a bodega cuando le cargues el courier en <a href="/cargar-courier" style={{ color: 'var(--text)' }}>Cargar courier</a>.
                             </div>
                           )}
                           </div>
