@@ -25,9 +25,9 @@ function fmtDate(d: string) {
   return new Date(d + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-// ===== NOTA DEL CONJUNTO (ej. cuándo llega) — se guarda sola al salir del campo =====
+// ===== NOTA CORTA de un conjunto o una pieza (ej. cuándo llega) — se guarda sola al salir del campo =====
 const NOTA_COMBO_MAX = 200;
-function NotaCombo({ comboId, valorInicial, puedeEditar }: { comboId: string; valorInicial: string; puedeEditar: boolean }) {
+function NotaCorta({ valorInicial, puedeEditar, onGuardar }: { valorInicial: string; puedeEditar: boolean; onGuardar: (nota: string, usuario: string) => Promise<unknown> }) {
   const [valor, setValor] = useState(valorInicial);
   const [guardando, setGuardando] = useState(false);
   useEffect(() => { setValor(valorInicial); }, [valorInicial]);
@@ -38,7 +38,7 @@ function NotaCombo({ comboId, valorInicial, puedeEditar }: { comboId: string; va
     if (!user) return;
     setGuardando(true);
     try {
-      await api.setNotaCombo(comboId, valor.trim(), user.usuario);
+      await onGuardar(valor.trim(), user.usuario);
     } catch (err) {
       alert('Error al guardar la nota: ' + (err instanceof Error ? err.message : 'desconocido'));
       setValor(valorInicial);
@@ -502,7 +502,7 @@ export default function StockPage() {
   const [selInferior, setSelInferior] = useState('');
   const [savingCombo, setSavingCombo] = useState(false);
   const [deletingCombo, setDeletingCombo] = useState('');
-  const [verPrecios, setVerPrecios] = useState(true); // conjuntos: con o sin precios
+  const [verPrecios, setVerPrecios] = useState(true); // inventario: con o sin precios
 
   const [fechaHoy, setFechaHoy] = useState('');
 
@@ -904,6 +904,19 @@ export default function StockPage() {
             {/* ===== TAB: INVENTARIO ===== */}
             {tab === 'inventario' && (
               <>
+                {isAdmin && (
+                  <div className="print-hide" style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 14 }}>
+                    <div role="group" aria-label="Mostrar precios" style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: 100, overflow: 'hidden' }}>
+                      {[{ v: true, t: 'Con precios' }, { v: false, t: 'Sin precios' }].map(o => (
+                        <button key={o.t} onClick={() => setVerPrecios(o.v)} aria-pressed={verPrecios === o.v}
+                          style={{ minHeight: 36, padding: '0 14px', border: 'none', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
+                            background: verPrecios === o.v ? 'var(--text)' : 'var(--surface)', color: verPrecios === o.v ? 'var(--surface)' : 'var(--text-soft)' }}>
+                          {o.t}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {/* ARMADOR DE SETS */}
                 {piezasParaArmar.length > 0 && (
                   <div className="card print-hide" style={{ padding: 24, marginBottom: 20 }}>
@@ -976,17 +989,6 @@ export default function StockPage() {
                       <h3 style={{ margin: 0, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
                         Conjuntos · <span className="tabular">{combos.length}</span>
                       </h3>
-                      {isAdmin && (
-                        <div className="print-hide" role="group" aria-label="Mostrar precios" style={{ display: 'inline-flex', border: '1px solid var(--border)', borderRadius: 100, overflow: 'hidden' }}>
-                          {[{ v: true, t: 'Con precios' }, { v: false, t: 'Sin precios' }].map(o => (
-                            <button key={o.t} onClick={() => setVerPrecios(o.v)} aria-pressed={verPrecios === o.v}
-                              style={{ minHeight: 36, padding: '0 14px', border: 'none', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit',
-                                background: verPrecios === o.v ? 'var(--text)' : 'var(--surface)', color: verPrecios === o.v ? 'var(--surface)' : 'var(--text-soft)' }}>
-                              {o.t}
-                            </button>
-                          ))}
-                        </div>
-                      )}
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12, marginBottom: 28 }}>
                       {combos.map(c => {
@@ -1068,7 +1070,7 @@ export default function StockPage() {
                                 </div>
                               );
                             })}
-                            <NotaCombo comboId={c.COMBO_ID} valorInicial={c.NOTA || ''} puedeEditar={isAdmin} />
+                            <NotaCorta valorInicial={c.NOTA || ''} puedeEditar={isAdmin} onGuardar={(n, u) => api.setNotaCombo(c.COMBO_ID, n, u)} />
                               </div>
                             </div>
                           </div>
@@ -1108,11 +1110,12 @@ export default function StockPage() {
                             <span>{fmtDate(l.FECHA_ENTRADA)}{isAdmin && l.FACTURA ? <span className="print-hide"> · Factura {l.FACTURA}</span> : ''}</span>
                             {isAdmin && <span className="mono print-hide">{l.LOTE_ID}</span>}
                           </div>
-                          {isAdmin && (
+                          {isAdmin && verPrecios && (
                             <div className="tabular print-hide" style={{ fontSize: 12, color: 'var(--text-soft)', marginTop: 4, textAlign: 'right' }}>
                               {fmtMoney(l.COSTO_UNITARIO)}
                             </div>
                           )}
+                          <NotaCorta valorInicial={l.NOTA_STOCK || ''} puedeEditar={isAdmin} onGuardar={(n, u) => api.setNotaLote(l.LOTE_ID, n, u)} />
                         </div>
                         {isAdmin && (
                           <button
@@ -1164,7 +1167,7 @@ export default function StockPage() {
                             <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 10 }}>
                               <span className="mono">{l.LOTE_ID}</span>
                               {l.FACTURA ? <> · Factura {l.FACTURA}</> : ''}
-                              {' · '}<span className="tabular">{fmtMoney(l.COSTO_UNITARIO)}</span>
+                              {verPrecios && <>{' · '}<span className="tabular">{fmtMoney(l.COSTO_UNITARIO)}</span></>}
                             </div>
                           )}
                           {isAdmin && (
@@ -1172,6 +1175,7 @@ export default function StockPage() {
                               Pasa a bodega cuando le cargues el courier en <a href="/cargar-courier" style={{ color: 'var(--text)' }}>Cargar courier</a>.
                             </div>
                           )}
+                          <NotaCorta valorInicial={l.NOTA_STOCK || ''} puedeEditar={isAdmin} onGuardar={(n, u) => api.setNotaLote(l.LOTE_ID, n, u)} />
                           </div>
                         </div>
                       );
