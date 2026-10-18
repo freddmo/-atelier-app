@@ -40,7 +40,6 @@ type ItemStock = {
 };
 
 const LONGITUDES = ['Regular', 'Petite', 'Tall'];
-const TRANSPORTES = ['FEDEX', 'USPS', 'Otro'];
 
 export default function CargarFacturaPage() {
   const router = useRouter();
@@ -58,9 +57,6 @@ export default function CargarFacturaPage() {
   const [itemsStock, setItemsStock] = useState<ItemStock[]>([]);
 
   // ── NUEVO: viaje del stock ──
-  const [stockYaLlego, setStockYaLlego] = useState(false); // default: en camino
-  const [tracking, setTracking] = useState('');
-  const [transporte, setTransporte] = useState('FEDEX');
 
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState('');
@@ -238,9 +234,9 @@ export default function CargarFacturaPage() {
         shipping: shippingNum,
         numFactura: numFactura.trim(),
         fecha,
-        stockYaLlego: hayStock ? stockYaLlego : true,
-        tracking: (hayStock && !stockYaLlego) ? tracking.trim() : '',
-        transporte: (hayStock && !stockYaLlego) ? transporte : '',
+        stockYaLlego: false,
+        tracking: '',
+        transporte: '',
         cuentaPago,
       }, user.usuario);
 
@@ -252,9 +248,6 @@ export default function CargarFacturaPage() {
       setNumFactura('');
       setIva('0');
       setShipping('0');
-      setStockYaLlego(false);
-      setTracking('');
-      setTransporte('FEDEX');
       load();
     } catch (err) {
       alert('Error: ' + (err instanceof Error ? err.message : 'desconocido'));
@@ -456,44 +449,10 @@ export default function CargarFacturaPage() {
             </div>
           )}
 
-          {/* 3b. VIAJE DEL STOCK (solo si hay stock) */}
+          {/* 3b. El stock siempre entra "en camino a Ecuador"; pasa a "en bodega" al cargarle el courier */}
           {hayStock && (
-            <div style={{ marginTop: 16, padding: 16, background: 'var(--bg)', borderRadius: 4, border: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
-                <div
-                  onClick={() => setStockYaLlego(!stockYaLlego)}
-                  style={{ width: 18, height: 18, borderRadius: 3, cursor: 'pointer', border: `1.5px solid ${stockYaLlego ? 'var(--text)' : 'var(--border)'}`, background: stockYaLlego ? 'var(--text)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: 12 }}
-                >
-                  {stockYaLlego ? '✓' : ''}
-                </div>
-                <span style={{ fontSize: 13, cursor: 'pointer' }} onClick={() => setStockYaLlego(!stockYaLlego)}>
-                  Este stock <strong>ya llegó</strong> a bodega EC (disponible para vender)
-                </span>
-              </div>
-
-              {!stockYaLlego ? (
-                <div>
-                  <p style={{ fontSize: 11, color: 'var(--text-faint)', margin: '0 0 10px' }}>
-                    El stock nacerá <strong>en camino</strong> (Mildred lo verá en preventa). Pon el tracking del envío FIGS → bodega FL.
-                  </p>
-                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12 }}>
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Tracking (FEDEX/USPS)</label>
-                      <input className="input" value={tracking} onChange={(e) => setTracking(e.target.value)} placeholder="7712..." style={{ marginTop: 2, padding: '6px 10px', fontSize: 13 }} />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: 10, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Transporte</label>
-                      <select className="input" value={transporte} onChange={(e) => setTransporte(e.target.value)} style={{ marginTop: 2, padding: '6px 10px', fontSize: 13 }}>
-                        {TRANSPORTES.map(t => <option key={t} value={t}>{t}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <p style={{ fontSize: 11, color: 'var(--text-faint)', margin: 0 }}>
-                  El stock entrará como <strong>disponible</strong> de una vez (ya está en bodega EC).
-                </p>
-              )}
+            <div style={{ marginTop: 16, padding: 14, background: 'var(--bg)', borderRadius: 4, border: '1px solid var(--border)', fontSize: 13, color: 'var(--text-soft)', lineHeight: 1.5 }}>
+              El stock de esta factura entra como <strong>En camino a Ecuador</strong>. Pasa a <strong>En bodega Ecuador</strong> cuando le cargues el courier en “Cargar courier”.
             </div>
           )}
         </div>
