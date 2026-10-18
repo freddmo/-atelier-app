@@ -18,6 +18,38 @@ export default function PedidosPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isBodega, setIsBodega] = useState(false);
   const [fechaHoy, setFechaHoy] = useState('');
+  const [filtrosListos, setFiltrosListos] = useState(false);
+
+  // Recordar el filtro, la búsqueda y dónde estabas en la lista mientras la pestaña siga abierta,
+  // para que al volver de "Gestionar" no empiece de cero.
+  useEffect(() => {
+    try {
+      const f = JSON.parse(sessionStorage.getItem('pedidos:filtros') || '{}');
+      if (typeof f.search === 'string') setSearch(f.search);
+      if (typeof f.filtroEstado === 'string') setFiltroEstado(f.filtroEstado);
+    } catch {}
+    setFiltrosListos(true);
+  }, []);
+
+  useEffect(() => {
+    if (!filtrosListos) return;
+    try { sessionStorage.setItem('pedidos:filtros', JSON.stringify({ search, filtroEstado })); } catch {}
+  }, [search, filtroEstado, filtrosListos]);
+
+  useEffect(() => {
+    const guardar = () => { try { sessionStorage.setItem('pedidos:scroll', String(window.scrollY)); } catch {} };
+    window.addEventListener('scroll', guardar, { passive: true });
+    return () => window.removeEventListener('scroll', guardar);
+  }, []);
+
+  // Cuando terminan de cargar los pedidos, vuelve a la posición donde estabas.
+  useEffect(() => {
+    if (loading) return;
+    try {
+      const y = Number(sessionStorage.getItem('pedidos:scroll') || 0);
+      if (y > 0) requestAnimationFrame(() => window.scrollTo(0, y));
+    } catch {}
+  }, [loading]);
 
   useEffect(() => {
     // Se calcula SOLO en el navegador, nunca en el servidor,
