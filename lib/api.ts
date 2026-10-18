@@ -342,6 +342,7 @@ export type Combo = {
   inferior: ComboPieza;
   costoSet?: number;   // costo de la pieza de arriba + la de abajo
   cantidad?: number;   // cuántos conjuntos completos hay (lo que alcance de la pieza con menos unidades)
+  NOTA?: string;       // nota corta, ej. cuándo llega
 };
 
 // ============ FINANZAS v2 ============
@@ -574,6 +575,9 @@ export const api = {
       loteInferior,
       usuario,
     });
+  },
+  async setNotaCombo(comboId: string, nota: string, usuario: string) {
+    return apiCall<{ comboId: string; nota: string }>({ action: 'setNotaCombo', comboId, nota, usuario });
   },
   async borrarCombo(comboId: string, usuario: string) {
     return apiCall<{ comboId: string; borrado: boolean }>({
