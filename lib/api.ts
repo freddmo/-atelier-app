@@ -262,6 +262,8 @@ export type LoteStock = {
   ESTADO_VIAJE?: string;                       // ← NUEVO
   eta?: { fechaMin: string; fechaMax: string } | null;  // ← NUEVO
   COLOR_HEX?: string;                          // ← NUEVO: hex del color, o '' si no está definido
+  FACTURA?: string;                            // número de factura con la que se compró
+  TIPO_ENTRADA?: string;
 };
 
 export type LoteEnCamino = {
@@ -281,6 +283,7 @@ export type LoteEnCamino = {
   FECHA_SALIDA_EC: string;
   eta: { fechaMin: string; fechaMax: string } | null;
   COLOR_HEX?: string;                          // ← NUEVO: hex del color, o '' si no está definido
+  FACTURA?: string;
 };
 
 export type Courier = {
@@ -324,6 +327,9 @@ export type ComboPieza = {
   enCamino: boolean;
   ESTADO_VIAJE: string;
   eta: { fechaMin: string; fechaMax: string } | null;
+  COSTO_UNITARIO?: number;
+  CANT_DISPONIBLE?: number;
+  FACTURA?: string;
 };
 
 export type Combo = {
@@ -334,6 +340,8 @@ export type Combo = {
   eta: { fechaMin: string; fechaMax: string } | null;
   superior: ComboPieza;
   inferior: ComboPieza;
+  costoSet?: number;   // costo de la pieza de arriba + la de abajo
+  cantidad?: number;   // cuántos conjuntos completos hay (lo que alcance de la pieza con menos unidades)
 };
 
 // ============ FINANZAS v2 ============
