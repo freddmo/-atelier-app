@@ -13,6 +13,7 @@ import CambioItemModal from '@/components/CambioItemModal';
 import CorregirItemModal from '@/components/CorregirItemModal';
 import CancelarItemModal from '@/components/CancelarItemModal';
 import PerdidaTransitoModal from '@/components/PerdidaTransitoModal';
+import { CourierInput, NotaBodegaInput } from '@/components/OrderCard';
 
 function fmtMoney(n: number) {
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -465,6 +466,15 @@ export default function PedidoDetallePage() {
                 {pedido.cliente?.INDUSTRIA || 'No especificada'}
               </div>
             </div>
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 6 }}>COURIER</div>
+                <div style={{ fontSize: 14 }}>
+                  <CourierInput ordenId={pedido.ORDEN_ID} valorInicial={String(pedido.COURIER ?? '').trim()} />
+                </div>
+              </div>
+              <NotaBodegaInput ordenId={pedido.ORDEN_ID} valorInicial={String((pedido as { NOTA_BODEGA?: string }).NOTA_BODEGA ?? '').trim()} />
+            </div>
             {pedido.NOTAS && (
               <div style={{ marginTop: 20, padding: 14, background: 'var(--bg)', borderRadius: 4, borderLeft: '2px solid var(--gold)' }}>
                 <div style={{ fontSize: 11, color: 'var(--text-faint)', marginBottom: 4 }}>NOTAS</div>
@@ -625,6 +635,18 @@ export default function PedidoDetallePage() {
                       {item.TIPO_PRENDA} · Talla {item.TALLA} · {item.LONGITUD} · {item.COLOR}
                       {item.PARTE_DE_SET ? ` · ${item.PARTE_DE_SET}` : ''}
                     </div>
+                    {(() => {
+                      const f = String((item as { FACTURA?: string }).FACTURA ?? '').trim();
+                      const lote = String((item as { LOTE?: string }).LOTE ?? '').trim();
+                      if (!f && !lote) return cancelado ? null : (
+                        <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 2 }}>Sin factura todavía</div>
+                      );
+                      return (
+                        <div style={{ fontSize: 11, color: 'var(--text-faint)', marginTop: 2 }}>
+                          {lote ? `Stock · ${lote}${f ? ' · ' : ''}` : ''}{f ? `Factura ${f}` : ''}
+                        </div>
+                      );
+                    })()}
                     <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       {cancelado ? (
                         <span className="pill" style={{ fontSize: 10, padding: '3px 8px', background: 'var(--rose-bg)', border: '1px solid var(--rose)', color: 'var(--rose)' }}>
