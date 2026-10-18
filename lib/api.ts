@@ -264,6 +264,7 @@ export type LoteStock = {
   COLOR_HEX?: string;                          // ← NUEVO: hex del color, o '' si no está definido
   FACTURA?: string;                            // número de factura con la que se compró
   TIPO_ENTRADA?: string;
+  NOTA_STOCK?: string;                         // nota corta, ej. cuándo llega
 };
 
 export type LoteEnCamino = {
@@ -284,6 +285,7 @@ export type LoteEnCamino = {
   eta: { fechaMin: string; fechaMax: string } | null;
   COLOR_HEX?: string;                          // ← NUEVO: hex del color, o '' si no está definido
   FACTURA?: string;
+  NOTA_STOCK?: string;
 };
 
 export type Courier = {
@@ -578,6 +580,9 @@ export const api = {
   },
   async setNotaCombo(comboId: string, nota: string, usuario: string) {
     return apiCall<{ comboId: string; nota: string }>({ action: 'setNotaCombo', comboId, nota, usuario });
+  },
+  async setNotaLote(loteId: string, nota: string, usuario: string) {
+    return apiCall<{ loteId: string; nota: string }>({ action: 'setNotaLote', loteId, nota, usuario });
   },
   async borrarCombo(comboId: string, usuario: string) {
     return apiCall<{ comboId: string; borrado: boolean }>({
