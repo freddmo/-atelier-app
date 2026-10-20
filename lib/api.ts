@@ -176,11 +176,14 @@ export type LotePendienteCourier = {
   COLOR: string;
   CANT_INICIAL: number;
   COSTO_UNITARIO: number;
+  ventas?: { ordenId: string; cliente: string; cantidad: number }[];  // piezas del lote que están en pedidos
+  CANT_DISPONIBLE?: number;  // piezas sin vender
 };
 
 export type CargarCourierParams = {
   pedidos?: { ordenId: string; numItems: number }[];
-  lotes: { loteId: string; cantInicial: number }[];
+  // vendidas + sinVender = piezas del lote que llegaron (si falta alguna, el lote se divide)
+  lotes: { loteId: string; cantInicial: number; vendidas?: { ordenId: string; cantidad: number }[]; sinVender?: number }[];
   items?: { ordenId: string; itemRowNum: number; cantidad: number }[];
   costoCourier: number;
   fecha: string;
@@ -308,6 +311,8 @@ export type ItemCourier = {
   COLOR: string;
   CANTIDAD: number;
   ESTATUS_ITEM: string;
+  DE_STOCK?: boolean;   // prenda que salió de stock: su courier se carga con su lote
+  LOTE?: string;
 };
 
 export type PedidoItemsCourier = {
