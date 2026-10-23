@@ -17,6 +17,12 @@ export default function Navbar() {
     setUser(auth.getUser());
   }, []);
 
+  // Usuario de solo inventario (rol "stock"): solo puede estar en /stock.
+  useEffect(() => {
+    const u = auth.getUser();
+    if (u?.rol === 'stock' && !pathname.startsWith('/stock')) router.replace('/stock');
+  }, [pathname, router]);
+
   // Cerrar dropdown al click afuera
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -30,6 +36,7 @@ export default function Navbar() {
 
   if (!user) return null;
   const isAdmin = user.rol === 'admin';
+  const soloStock = user.rol === 'stock';
 
   function logout() {
     if (confirm('¿Cerrar sesión?')) {
@@ -47,12 +54,14 @@ export default function Navbar() {
     <header style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)', position: 'sticky', top: 0, zIndex: 40 }}>
       <div style={{ maxWidth: 1200, margin: '0 auto', padding: '16px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 40 }}>
-          <div onClick={() => router.push('/pedidos')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'baseline', gap: 6 }}>
+          <div onClick={() => router.push(soloStock ? '/stock' : '/pedidos')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'baseline', gap: 6 }}>
             <span className="display" style={{ fontSize: 22, fontWeight: 400 }}>Atelier</span>
             <span className="number-tag hide-mobile">N°01</span>
           </div>
           <nav className="hide-mobile" style={{ display: 'flex', gap: 24, alignItems: 'center' }}>
-            <button className={`nav-link ${isActive('/pedidos') ? 'active' : ''}`} onClick={() => router.push('/pedidos')}>Pedidos</button>
+            {!soloStock && (
+              <button className={`nav-link ${isActive('/pedidos') ? 'active' : ''}`} onClick={() => router.push('/pedidos')}>Pedidos</button>
+            )}
             <button className={`nav-link ${isActive('/stock') ? 'active' : ''}`} onClick={() => router.push('/stock')}>Stock</button>
             {isAdmin && (
               <button className={`nav-link ${isActive('/nuevo-pedido') ? 'active' : ''}`} onClick={() => router.push('/nuevo-pedido')}>Nuevo pedido</button>
@@ -118,7 +127,9 @@ export default function Navbar() {
                 )}
               </div>
             )}
-            <button className={`nav-link ${isActive('/colores') ? 'active' : ''}`} onClick={() => router.push('/colores')}>Colores</button>
+            {!soloStock && (
+              <button className={`nav-link ${isActive('/colores') ? 'active' : ''}`} onClick={() => router.push('/colores')}>Colores</button>
+            )}
           </nav>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -135,7 +146,9 @@ export default function Navbar() {
       {mobileOpen && (
         <div className="show-mobile" style={{ borderTop: '1px solid var(--border)', padding: '16px 24px', background: 'var(--bg)' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <button className={`nav-link ${isActive('/pedidos') ? 'active' : ''}`} onClick={() => { router.push('/pedidos'); setMobileOpen(false); }}>Pedidos</button>
+            {!soloStock && (
+              <button className={`nav-link ${isActive('/pedidos') ? 'active' : ''}`} onClick={() => { router.push('/pedidos'); setMobileOpen(false); }}>Pedidos</button>
+            )}
             <button className={`nav-link ${isActive('/stock') ? 'active' : ''}`} onClick={() => { router.push('/stock'); setMobileOpen(false); }}>Stock</button>
             {isAdmin && (
               <button className={`nav-link ${isActive('/nuevo-pedido') ? 'active' : ''}`} onClick={() => { router.push('/nuevo-pedido'); setMobileOpen(false); }}>Nuevo pedido</button>
@@ -155,7 +168,9 @@ export default function Navbar() {
             {isAdmin && (
               <button className={`nav-link ${isActive('/asignar-stock') ? 'active' : ''}`} onClick={() => { router.push('/asignar-stock'); setMobileOpen(false); }}>📦 Asignar stock</button>
             )}
-            <button className={`nav-link ${isActive('/colores') ? 'active' : ''}`} onClick={() => { router.push('/colores'); setMobileOpen(false); }}>Catálogo de colores</button>
+            {!soloStock && (
+              <button className={`nav-link ${isActive('/colores') ? 'active' : ''}`} onClick={() => { router.push('/colores'); setMobileOpen(false); }}>Catálogo de colores</button>
+            )}
             <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '4px 0' }} />
             <button className="nav-link" onClick={logout} style={{ color: 'var(--rose)' }}>Cerrar sesión</button>
           </div>
