@@ -18,7 +18,7 @@ export default function LoginPage() {
     try {
       const user = await api.login(usuario, password);
       auth.setUser(user);
-      router.push('/pedidos');
+      router.push(user.rol === 'stock' ? '/stock' : '/pedidos');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al iniciar sesión');
     } finally {
