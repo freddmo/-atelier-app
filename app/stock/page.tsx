@@ -503,6 +503,7 @@ export default function StockPage() {
   const [savingCombo, setSavingCombo] = useState(false);
   const [deletingCombo, setDeletingCombo] = useState('');
   const [verPrecios, setVerPrecios] = useState(true); // inventario: con o sin precios
+  const [soloLectura, setSoloLectura] = useState(false); // usuario "stock": solo mira el inventario
 
   const [fechaHoy, setFechaHoy] = useState('');
 
@@ -511,6 +512,7 @@ export default function StockPage() {
     const user = auth.getUser();
     if (!user) { router.replace('/login'); return; }
     setIsAdmin(user.rol === 'admin');
+    setSoloLectura(user.rol === 'stock');
     // Se calcula aquí (solo en el navegador) para evitar un mismatch de
     // hydration entre el servidor (UTC) y el cliente (Ecuador) — se
     // muestra en el header ("...· 11 de agosto de 2026").
@@ -730,7 +732,7 @@ export default function StockPage() {
           { key: 'inventario', label: '📦 Inventario' },
           { key: 'chequeo',    label: '✅ Chequeo de bodega' },
           { key: 'materiales', label: '🧴 Materiales' },
-        ] as { key: 'inventario' | 'chequeo' | 'materiales'; label: string }[]).map(t => (
+        ] as { key: 'inventario' | 'chequeo' | 'materiales'; label: string }[]).filter(t => !soloLectura || t.key === 'inventario').map(t => (
             <button
               key={t.key}
               onClick={() => setTab(t.key)}
@@ -757,12 +759,12 @@ export default function StockPage() {
         ) : (
           <>
             {/* ===== TAB: CHEQUEO ===== */}
-            {tab === 'chequeo' && (
+            {tab === 'chequeo' && !soloLectura && (
               <ChecklistAuditoria lotes={lotes} />
             )}
 
             {/* ===== TAB: MATERIALES ===== */}
-            {tab === 'materiales' && (
+            {tab === 'materiales' && !soloLectura && (
               <div>
                 {/* Resumen alertas */}
                 {(() => {
@@ -918,7 +920,7 @@ export default function StockPage() {
                   </div>
                 )}
                 {/* ARMADOR DE SETS */}
-                {piezasParaArmar.length > 0 && (
+                {!soloLectura && piezasParaArmar.length > 0 && (
                   <div className="card print-hide" style={{ padding: 24, marginBottom: 20 }}>
                     <h3 style={{ margin: '0 0 4px', fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--text-soft)' }}>
                       🧩 Armar un set
@@ -997,7 +999,7 @@ export default function StockPage() {
                         const mismoColor = String(c.superior.COLOR || '').toUpperCase().trim() === String(c.inferior.COLOR || '').toUpperCase().trim();
                         return (
                           <div key={c.COMBO_ID} className="card" style={{ padding: 16, position: 'relative', borderColor: c.enCamino ? 'var(--amber)' : undefined }}>
-                            <button
+                            {!soloLectura && <button
                               className="btn print-hide"
                               onClick={() => borrarComboFn(c.COMBO_ID)}
                               disabled={deletingCombo === c.COMBO_ID}
@@ -1005,7 +1007,7 @@ export default function StockPage() {
                               style={{ position: 'absolute', top: 10, right: 10, padding: '3px 8px', fontSize: 11, color: 'var(--rose)' }}
                             >
                               {deletingCombo === c.COMBO_ID ? '…' : '✕'}
-                            </button>
+                            </button>}
 
                             {/* Foto (izquierda) + info (derecha) */}
                             <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
