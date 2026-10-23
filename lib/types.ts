@@ -1,6 +1,6 @@
 // lib/types.ts — Tipos compartidos en toda la app (v4.0 Sheet nuevo)
 
-export type Rol = 'admin' | 'coordinador' | 'marketing' | 'bodega';
+export type Rol = 'admin' | 'coordinador' | 'marketing' | 'bodega' | 'stock'; // 'stock': solo ve el inventario, sin precios
 
 export type Usuario = {
   token: string;
