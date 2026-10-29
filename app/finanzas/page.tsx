@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { auth } from '@/lib/auth';
 import {
-  api, type Corte, type CuentaConSaldo, type FinanzasCuentas, type Movimiento, type NuevoMovimiento,
+  api, type BarraRecupero, type BarrasRecupero, type Corte, type CuentaConSaldo, type FinanzasCuentas, type Movimiento, type NuevoMovimiento,
 } from '@/lib/api';
 import Navbar from '@/components/Navbar';
 
@@ -96,6 +96,7 @@ export default function FinanzasPage() {
   const [fin, setFin] = useState<FinanzasCuentas | null>(null);
   const [errorFin, setErrorFin] = useState('');
   const [prefillReparto, setPrefillReparto] = useState<{ monto: number } | null>(null);
+  const [barrasVersion, setBarrasVersion] = useState(0); // al registrar algo, las barras se recargan
 
   const cargarCuentas = useCallback(() => {
     api.getFinanzasCuentas().then(f => { setFin(f); setErrorFin(''); })
@@ -136,6 +137,8 @@ export default function FinanzasPage() {
           ))}
         </nav>
 
+        <BarrasDinero version={barrasVersion} />
+
         {errorFin && <div style={{ marginBottom: 14 }}><Aviso tono="rose">No se pudieron cargar las cuentas: {errorFin}</Aviso></div>}
 
         {tab === 'corte' && (
@@ -144,12 +147,70 @@ export default function FinanzasPage() {
         )}
         {tab === 'registrar' && (
           <RegistrarTab usuario={usuario} fin={fin} prefillReparto={prefillReparto}
-            onGuardado={() => { cargarCuentas(); setPrefillReparto(null); }} />
+            onGuardado={() => { cargarCuentas(); setPrefillReparto(null); setBarrasVersion(v => v + 1); }} />
         )}
         {tab === 'movimientos' && <MovimientosTab usuario={usuario} fin={fin} onCambio={cargarCuentas} />}
         {tab === 'cuentas' && <CuentasTab fin={fin} />}
       </div>
     </>
+  );
+}
+
+// ───────────────────────── BARRAS: DINERO QUE VUELVE PARA LAS TARJETAS ─────────────────────────
+
+function BarrasDinero({ version }: { version: number }) {
+  const [b, setB] = useState<BarrasRecupero | null>(null);
+  const [abierta, setAbierta] = useState<'' | 'stock' | 'pedidos'>('');
+  useEffect(() => { api.getBarrasRecupero().then(setB).catch(() => setB(null)); }, [version]);
+  if (!b) return null;
+  return (
+    <div className="card m-pad" style={{ padding: 18, marginBottom: 18, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <Barra titulo="Dinero para stock" tarjeta="Chase" datos={b.stock} abierta={abierta === 'stock'} onToggle={() => setAbierta(abierta === 'stock' ? '' : 'stock')} />
+      <Barra titulo="Dinero para pedidos" tarjeta="Capital One" datos={b.pedidos} abierta={abierta === 'pedidos'} onToggle={() => setAbierta(abierta === 'pedidos' ? '' : 'pedidos')} />
+      <p style={{ ...T.sub, margin: 0, lineHeight: 1.5 }}>
+        Suben con lo que costaron las prendas de cada pedido entregado y pagado completo (desde el {fechaLarga(b.inicio)}). Bajan cuando registras un pago a la tarjeta.
+      </p>
+    </div>
+  );
+}
+
+function Barra({ titulo, tarjeta, datos, abierta, onToggle }: { titulo: string; tarjeta: string; datos: BarraRecupero; abierta: boolean; onToggle: () => void }) {
+  const pct = Math.min(100, datos.tope > 0 ? (datos.saldo / datos.tope) * 100 : 0);
+  const lleno = datos.saldo >= datos.tope;
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 10, marginBottom: 6 }}>
+        <span style={{ fontSize: 14, fontWeight: 600 }}>{titulo}</span>
+        <span className="tabular" style={{ fontSize: 14 }}>
+          <strong>{money(datos.saldo)}</strong> <span style={{ color: 'var(--text-soft)' }}>de {money(datos.tope)}</span>
+        </span>
+      </div>
+      <div role="progressbar" aria-label={titulo} aria-valuemin={0} aria-valuemax={datos.tope} aria-valuenow={datos.saldo}
+        style={{ height: 12, background: 'var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', background: lleno ? 'var(--green)' : 'var(--gold)', borderRadius: 6, transition: 'width .4s' }} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginTop: 6, ...T.sub }}>
+        <span>
+          {lleno ? `¡Llena! Hora de pagar la ${tarjeta}.` : `${datos.ventas} venta${datos.ventas === 1 ? '' : 's'} · recuperado ${money(datos.recuperado)}`}
+          {datos.pagado > 0 && ` · ya pagado a ${tarjeta} ${money(datos.pagado)}`}
+        </span>
+        {datos.detalle.length > 0 && (
+          <button onClick={onToggle} style={{ background: 'none', border: 'none', color: 'var(--text-soft)', textDecoration: 'underline', cursor: 'pointer', fontSize: 12, padding: 0, minHeight: 24, fontFamily: 'inherit' }}>
+            {abierta ? 'Ocultar' : 'Ver de dónde sale'}
+          </button>
+        )}
+      </div>
+      {abierta && (
+        <div style={{ marginTop: 8, borderTop: '1px solid var(--border)' }}>
+          {datos.detalle.map(d => (
+            <div key={d.ordenId} style={{ ...T.row, fontSize: 13, borderBottom: '1px solid var(--border)' }}>
+              <span>{d.ordenId} · {d.cliente} <span style={{ color: 'var(--text-faint)' }}>· {fechaCorta(d.fecha)}</span></span>
+              <span className="tabular">{money(d.monto)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
