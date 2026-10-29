@@ -11,6 +11,7 @@ import PaymentModal from '@/components/PaymentModal';
 import ItemsStateModal from '@/components/ItemsStateModal';
 import CambioItemModal from '@/components/CambioItemModal';
 import CorregirItemModal from '@/components/CorregirItemModal';
+import EditarItemModal from '@/components/EditarItemModal';
 import CancelarItemModal from '@/components/CancelarItemModal';
 import PerdidaTransitoModal from '@/components/PerdidaTransitoModal';
 import { CourierInput, NotaBodegaInput } from '@/components/OrderCard';
@@ -85,6 +86,7 @@ export default function PedidoDetallePage() {
   const [showPayModal, setShowPayModal] = useState(false);
   const [cambioItem, setCambioItem] = useState<any | null>(null);
   const [corregirItem, setCorregirItem] = useState<any | null>(null);
+  const [editarItem, setEditarItem] = useState<any | null>(null);
   const [cancelarItem, setCancelarItem] = useState<any | null>(null);
   const [showPerdida, setShowPerdida] = useState(false);
   const [showDescuento, setShowDescuento] = useState(false);
@@ -674,6 +676,16 @@ export default function PedidoDetallePage() {
                           ✎ Corregir talla/color
                         </button>
                       )}
+                      {puedeMover && !cancelado && !itemEntregado(item) && info?.tipo !== 'stock' && !(Number(item.COSTO_UNITARIO) > 0) && (
+                        <button
+                          onClick={() => setEditarItem(item)}
+                          className="btn"
+                          style={{ padding: '2px 8px', fontSize: 10 }}
+                          title="La clienta cambió de idea y todavía no se compra: cambia modelo, talla, color o precio"
+                        >
+                          ✎ Cambiar prenda
+                        </button>
+                      )}
                       {puedeMover && !cancelado && !itemEntregado(item) && (
                         <button
                           onClick={() => setCambioItem(item)}
@@ -783,6 +795,20 @@ export default function PedidoDetallePage() {
           onClose={() => setCambioItem(null)}
           onDone={(msg) => {
             setCambioItem(null);
+            setToast(msg);
+            setTimeout(() => setToast(''), 3500);
+            loadPedido();
+          }}
+        />
+      )}
+
+      {editarItem && (
+        <EditarItemModal
+          ordenId={pedido.ORDEN_ID}
+          item={editarItem}
+          onClose={() => setEditarItem(null)}
+          onDone={(msg) => {
+            setEditarItem(null);
             setToast(msg);
             setTimeout(() => setToast(''), 3500);
             loadPedido();
