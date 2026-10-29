@@ -393,6 +393,12 @@ export type Corte = {
   anterior?: { repartible: { gananciaPedidosPagados: number; gastosFijos: number; donacion: number; neto: number;
     porSocio: number; cubiertoPorFreddy: number; porFreddyFinal: number; cantidadPedidos: number } } | null;
 };
+export type BarraRecupero = {
+  tope: number; recuperado: number; pagado: number; saldo: number; ventas: number;
+  detalle: { ordenId: string; cliente: string; fecha: string; monto: number }[];
+};
+export type BarrasRecupero = { inicio: string; stock: BarraRecupero; pedidos: BarraRecupero };
+
 export type NuevoMovimiento = {
   tipo: 'GASTO_NEGOCIO' | 'SUELDO' | 'GASTO_SOCIO' | 'GASTO_PERSONAL' | 'TRANSFERENCIA' | 'PAGO_TARJETA' | 'PAGO_REPARTO';
   fecha: string; monto: number; comision?: number; categoria?: string;
@@ -779,6 +785,15 @@ export const api = {
   
   // --- Capital real: liquido + stock + pedidos activos - deuda ---
   // ============ FINANZAS v2 ============
+  async editarItem(p: { ordenId: string; itemRow: number; sku: string; talla: string; longitud: string; color: string; precio?: number }, usuario: string) {
+    return apiCall<{ itemRow: number; antes: string; despues: string }>({
+      action: 'editarItem', ordenId: p.ordenId, itemRow: String(p.itemRow), sku: p.sku, talla: p.talla,
+      longitud: p.longitud, color: p.color, precio: p.precio === undefined ? '' : String(p.precio), usuario,
+    });
+  },
+  async getBarrasRecupero(): Promise<BarrasRecupero> {
+    return apiCall<BarrasRecupero>({ action: 'getBarrasRecupero' });
+  },
   async getCuentas(): Promise<Cuenta[]> {
     return apiCall<Cuenta[]>({ action: 'getCuentas' });
   },
