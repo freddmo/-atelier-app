@@ -1,5 +1,5 @@
 // app/finanzas/page.tsx
-// Finanzas v2: Corte (reparto cada 15), Registrar (gastos, sueldos, envíos, tarjetas…),
+// Finanzas v2: Corte (reparto por quincena: 1–15 y 16–fin de mes), Registrar (gastos, sueldos, envíos, tarjetas…),
 // Movimientos (el libro) y Cuentas (saldos y capital real).
 
 'use client';
@@ -32,18 +32,32 @@ function fechaLarga(f: string) {
   return new Date(f + 'T12:00:00').toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-// Corte = del 15 de un mes al 14 del siguiente.
+// Cortes:
+//   - hasta el 14 oct 2026: del 15 de un mes al 14 del siguiente (sistema anterior)
+//   - 15 al 31 oct 2026: corte de transición
+//   - desde nov 2026: quincenas, del 1 al 15 y del 16 al último día del mes
 type RangoCorte = { desde: string; hasta: string };
+const INICIO_QUINCENAS = '2026-11-01';
+const INICIO_TRANSICION = '2026-10-15';
 function corteDe(fecha: string): RangoCorte {
   const [y, m, d] = fecha.split('-').map(Number);
+  if (fecha >= INICIO_QUINCENAS) {
+    if (d <= 15) return { desde: ymd(new Date(y, m - 1, 1)), hasta: ymd(new Date(y, m - 1, 15)) };
+    return { desde: ymd(new Date(y, m - 1, 16)), hasta: ymd(new Date(y, m, 0)) };
+  }
+  if (fecha >= INICIO_TRANSICION) return { desde: INICIO_TRANSICION, hasta: '2026-10-31' };
   const ini = d >= 15 ? new Date(y, m - 1, 15) : new Date(y, m - 2, 15);
   const fin = new Date(ini.getFullYear(), ini.getMonth() + 1, 14);
   return { desde: ymd(ini), hasta: ymd(fin) };
 }
+function sumarDia(f: string, n: number) {
+  const [y, m, d] = f.split('-').map(Number);
+  return ymd(new Date(y, m - 1, d + n));
+}
 function moverCorte(c: RangoCorte, n: number): RangoCorte {
-  const [y, m] = c.desde.split('-').map(Number);
-  const ini = new Date(y, m - 1 + n, 15);
-  return { desde: ymd(ini), hasta: ymd(new Date(ini.getFullYear(), ini.getMonth() + 1, 14)) };
+  let r = c;
+  for (let i = 0; i < Math.abs(n); i++) r = n > 0 ? corteDe(sumarDia(r.hasta, 1)) : corteDe(sumarDia(r.desde, -1));
+  return r;
 }
 
 const T = {
