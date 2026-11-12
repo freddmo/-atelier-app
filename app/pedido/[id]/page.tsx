@@ -12,9 +12,10 @@ import ItemsStateModal from '@/components/ItemsStateModal';
 import CambioItemModal from '@/components/CambioItemModal';
 import CorregirItemModal from '@/components/CorregirItemModal';
 import EditarItemModal from '@/components/EditarItemModal';
+import RecibeEditor, { recibeDe } from '@/components/RecibeEditor';
 import CancelarItemModal from '@/components/CancelarItemModal';
 import PerdidaTransitoModal from '@/components/PerdidaTransitoModal';
-import { CourierInput, NotaBodegaInput } from '@/components/OrderCard';
+import { CourierInput, NotaBodegaInput, PuntosPedido } from '@/components/OrderCard';
 
 function fmtMoney(n: number) {
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -476,6 +477,12 @@ export default function PedidoDetallePage() {
                 </div>
               </div>
               <NotaBodegaInput ordenId={pedido.ORDEN_ID} valorInicial={String((pedido as { NOTA_BODEGA?: string }).NOTA_BODEGA ?? '').trim()} />
+              <PuntosPedido pedido={pedido} />
+              <RecibeEditor
+                ordenId={pedido.ORDEN_ID}
+                inicial={recibeDe(pedido as unknown as Record<string, unknown>)}
+                onGuardado={(r) => setPedido(prev => prev ? ({ ...prev, RECIBE_NOMBRE: r.nombre, RECIBE_TELEFONO: r.telefono, RECIBE_CEDULA: r.cedula, RECIBE_DIRECCION: r.direccion, RECIBE_CIUDAD: r.ciudad } as typeof prev) : prev)}
+              />
             </div>
             {pedido.NOTAS && (
               <div style={{ marginTop: 20, padding: 14, background: 'var(--bg)', borderRadius: 4, borderLeft: '2px solid var(--gold)' }}>
