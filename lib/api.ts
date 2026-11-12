@@ -132,6 +132,8 @@ export type CrearPedidoParams = {
     email?: string;
   };
   items: NuevoPedidoItem[];
+  recibe?: { nombre: string; telefono: string; cedula: string; direccion: string; ciudad: string }; // si lo recibe otra persona
+  canje?: { recId: string; loteId?: string }; // ScrubMe Rewards: recompensa (de stock con loteId, o por encargo sin loteId)
   descuento: { monto: number; nota: string };
   estado: string;
   notas: string;
@@ -393,6 +395,20 @@ export type Corte = {
   anterior?: { repartible: { gananciaPedidosPagados: number; gastosFijos: number; donacion: number; neto: number;
     porSocio: number; cubiertoPorFreddy: number; porFreddyFinal: number; cantidadPedidos: number } } | null;
 };
+export type Recompensa = { id: string; nombre: string; sku: string; skus?: string[]; puntos: number; costo: number; activo: boolean };
+export type RewardsCliente = {
+  cliente: string; compras: number; saldo: number; porGanar: number; ganados: number; usados: number; vencidos: number;
+  proximoVencimiento: { fecha: string; puntos: number } | null;
+  alcanza: string; siguiente: { nombre: string; faltan: number } | null;
+  canjes: { fecha: string; pts: number; orden: string; recompensa: string; costo: number; tipo: string }[];
+};
+export type RewardsResumen = {
+  inicio: string; puntosPorUniforme: number; mesesVigencia: number;
+  catalogo: Recompensa[]; clientes: RewardsCliente[];
+  canjesPorMes: { mes: string; canjes: number; costo: number; puntos: number }[];
+  totales: { puntosVigentes: number; puntosPorGanar: number; costoCanjeado: number };
+};
+
 export type BarraRecupero = {
   tope: number; recuperado: number; pagado: number; saldo: number; ventas: number;
   detalle: { ordenId: string; cliente: string; fecha: string; monto: number }[];
@@ -617,8 +633,13 @@ export const api = {
       estado: params.estado,
       notas: params.notas,
       fecha: params.fecha,
+      ...(params.recibe ? { recibe: JSON.stringify(params.recibe) } : {}),
+      ...(params.canje ? { canje: JSON.stringify(params.canje) } : {}),
       usuario,
     });
+  },
+  async setRecibe(ordenId: string, recibe: { nombre: string; telefono: string; cedula: string; direccion: string; ciudad: string }, usuario: string) {
+    return apiCall<unknown[]>({ action: 'setRecibe', ordenId, recibe: JSON.stringify(recibe), usuario });
   },
   async crearCliente(
     cliente: {
@@ -790,6 +811,12 @@ export const api = {
       action: 'editarItem', ordenId: p.ordenId, itemRow: String(p.itemRow), sku: p.sku, talla: p.talla,
       longitud: p.longitud, color: p.color, precio: p.precio === undefined ? '' : String(p.precio), usuario,
     });
+  },
+  async getRewards(): Promise<RewardsResumen> {
+    return apiCall<RewardsResumen>({ action: 'getRewards' });
+  },
+  async ajustarPuntos(cliente: string, puntos: number, nota: string, usuario: string) {
+    return apiCall<{ cliente: string; puntos: number }>({ action: 'ajustarPuntos', cliente, puntos: String(puntos), nota, usuario });
   },
   async getBarrasRecupero(): Promise<BarrasRecupero> {
     return apiCall<BarrasRecupero>({ action: 'getBarrasRecupero' });
