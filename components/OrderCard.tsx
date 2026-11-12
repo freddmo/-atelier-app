@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Pedido } from '@/lib/types';
 import { api } from '@/lib/api';
 import { auth } from '@/lib/auth';
+import RecibeEditor, { recibeDe, hayRecibe, type Recibe } from '@/components/RecibeEditor';
 
 type Props = {
   pedido: Pedido;
@@ -59,6 +60,17 @@ function bloqueVerificacion(pedido: Pedido): string {
     return s || '—';
   };
   let bloque = `\n\n────────────\n`;
+  const r = recibeDe(pedido as unknown as Record<string, unknown>);
+  if (hayRecibe(r)) {
+    bloque += `📋 Verificar antes de enviar (lo recibe otra persona):\n`;
+    bloque += `Recibe: ${dato(r.nombre)}\n`;
+    bloque += `Ciudad: ${dato(r.ciudad)}\n`;
+    bloque += `Dirección: ${dato(r.direccion)}\n`;
+    bloque += `Cédula: ${dato(r.cedula)}\n`;
+    bloque += `Teléfono: ${dato(r.telefono)}\n`;
+    bloque += `Industria/especialización/interés: ${dato(pedido.cliente?.INDUSTRIA)}`;
+    return bloque;
+  }
   bloque += `📋 Verificar antes de enviar:\n`;
   bloque += `Ciudad: ${dato(pedido.cliente?.CIUDAD)}\n`;
   bloque += `Dirección: ${dato(pedido.cliente?.DIRECCION)}\n`;
@@ -92,6 +104,12 @@ function generarMensajeListoParaEnviar(pedido: Pedido): string {
   mensaje += `🗓️ *Viernes*\n`;
   mensaje += `🕥 10:30 a. m. – 4:00 p. m.\n\n`;
   mensaje += `📦 ¡Tu pedido ya está listo para ser entregado!\n`;
+  const ptsPedido = Number((pedido as { REW_PUNTOS_PEDIDO?: number }).REW_PUNTOS_PEDIDO) || 0;
+  if (ptsPedido > 0) {
+    const saldoPts = Number((pedido as { REW_SALDO_CLIENTA?: number }).REW_SALDO_CLIENTA) || 0;
+    const yaGanados = (pedido as { REW_ESTADO_PEDIDO?: string }).REW_ESTADO_PEDIDO === 'GANADOS';
+    mensaje += `\n⭐ Con este pedido ganas *${ptsPedido} puntos* ScrubMe Rewards (tendrás ${yaGanados ? saldoPts : saldoPts + ptsPedido} en total).\n`;
+  }
   if (saldo > 0.005) {
     mensaje += `\n💰 Saldo pendiente: *$${saldo.toFixed(2)}*\n`;
   }
@@ -299,7 +317,24 @@ function gruposPorFactura(items: Pedido['items']) {
   return grupos;
 }
 
+// ScrubMe Rewards: puntos que gana este pedido y saldo de la clienta
+export function PuntosPedido({ pedido }: { pedido: Pedido }) {
+  const p = pedido as { REW_PUNTOS_PEDIDO?: number; REW_ESTADO_PEDIDO?: string; REW_SALDO_CLIENTA?: number; REW_SIGUIENTE?: string };
+  const pts = Number(p.REW_PUNTOS_PEDIDO) || 0;
+  const saldo = Number(p.REW_SALDO_CLIENTA) || 0;
+  if (!pts && !saldo) return null;
+  const estado = p.REW_ESTADO_PEDIDO === 'GANADOS' ? 'ganados' : 'al entregar y pagar';
+  return (
+    <div style={{ fontSize: 12, color: 'var(--text-soft)' }}>
+      ⭐ {pts > 0 ? <>Este pedido: <strong style={{ color: 'var(--text)' }}>+{pts} pts</strong> ({estado}) · </> : null}
+      Saldo de la clienta: <strong style={{ color: 'var(--text)' }}>{saldo} pts</strong>
+      {p.REW_SIGUIENTE ? <> · Siguiente: {p.REW_SIGUIENTE}</> : null}
+    </div>
+  );
+}
+
 function CardExtra({ pedido }: { pedido: Pedido }) {
+  const [recibe, setRecibe] = useState<Recibe>(() => recibeDe(pedido as unknown as Record<string, unknown>));
   const items = (pedido.items || []).filter(
     it => String((it as any).ESTATUS_ITEM || '').toUpperCase().trim() !== 'CANCELADO'
   );
@@ -314,7 +349,19 @@ function CardExtra({ pedido }: { pedido: Pedido }) {
 
       <NotaBodegaInput ordenId={pedido.ORDEN_ID} valorInicial={str((pedido as any).NOTA_BODEGA)} />
 
-      <VerificarInfoCliente pedido={pedido} />
+      <PuntosPedido pedido={pedido} />
+
+      {hayRecibe(recibe) ? null : <VerificarInfoCliente pedido={pedido} />}
+
+      <RecibeEditor
+        ordenId={pedido.ORDEN_ID}
+        inicial={recibe}
+        onGuardado={(r) => {
+          // Que los mensajes de WhatsApp usen los datos nuevos sin recargar
+          Object.assign(pedido, { RECIBE_NOMBRE: r.nombre, RECIBE_TELEFONO: r.telefono, RECIBE_CEDULA: r.cedula, RECIBE_DIRECCION: r.direccion, RECIBE_CIUDAD: r.ciudad });
+          setRecibe(r);
+        }}
+      />
 
       {items.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
