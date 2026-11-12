@@ -6,6 +6,10 @@ import { api, Cliente, SetCatalogo, NuevoPedidoItem, CrearPedidoParams, LoteStoc
 import { Producto } from '@/lib/types';
 import { auth } from '@/lib/auth';
 import Navbar from '@/components/Navbar';
+import { RecibeCampos, RECIBE_VACIO, hayRecibe, type Recibe } from '@/components/RecibeEditor';
+import type { RewardsResumen } from '@/lib/api';
+
+const claveNombre = (s: string) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
 
 function fmtMoney(n: number) {
   return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -60,6 +64,16 @@ export default function NuevoPedidoPage() {
   const [lineas, setLineas] = useState<LineaProducto[]>([]);
   const [precioNegociado, setPrecioNegociado] = useState('');
   const [notas, setNotas] = useState('');
+  const [otraRecibe, setOtraRecibe] = useState(false);
+  const [recibe, setRecibe] = useState<Recibe>({ ...RECIBE_VACIO });
+  // ScrubMe Rewards
+  const [rewards, setRewards] = useState<RewardsResumen | null>(null);
+  const [canjeRec, setCanjeRec] = useState('');
+  const [canjeLote, setCanjeLote] = useState('');
+  const [canjeModo, setCanjeModo] = useState<'stock' | 'pedido'>('stock');
+  const [canjePedido, setCanjePedido] = useState({ sku: '', talla: 'O/S', longitud: 'Regular', color: '' });
+  useEffect(() => { api.getRewards().then(setRewards).catch(() => {}); }, []);
+  useEffect(() => { setCanjeRec(''); setCanjeLote(''); setCanjeModo('stock'); }, [clienteSel]);
   const [fecha, setFecha] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
@@ -297,6 +311,30 @@ export default function NuevoPedidoPage() {
       }
     }
 
+    // Canje de puntos: la recompensa sale de stock a $0 y no se combina con otro descuento
+    let canje: { recId: string; loteId?: string } | undefined;
+    if (canjeRec && canjeModo === 'pedido') {
+      if (descuentoMonto > 0) { alert('En un pedido con canje de puntos no se puede poner precio negociado (descuento).'); return; }
+      if (!canjePedido.sku || !canjePedido.talla.trim() || !canjePedido.color.trim()) { alert('Completa modelo, talla y color de la recompensa que se va a pedir'); return; }
+      items.push({
+        sku: canjePedido.sku, talla: canjePedido.talla.trim(), longitud: canjePedido.longitud, color: canjePedido.color.trim(),
+        cantidad: 1, precioVenta: 0, parteDeSet: 'Recompensa ScrubMe Rewards', origen: 'PEDIDO',
+      });
+      canje = { recId: canjeRec };
+    } else if (canjeRec) {
+      if (!canjeLote) { alert('Elige de qué lote sale la recompensa'); return; }
+      if (descuentoMonto > 0) { alert('En un pedido con canje de puntos no se puede poner precio negociado (descuento).'); return; }
+      const lote = stockLotes.find(x => x.LOTE_ID === canjeLote);
+      if (!lote) { alert('Ese lote ya no está disponible'); return; }
+      const usados = lineas.filter(l => l.tipo === 'stock' && l.loteId === canjeLote).reduce((a, l) => a + (Number(l.cantidad) || 0), 0);
+      if (usados + 1 > lote.CANT_DISPONIBLE) { alert(`No queda ${lote.SKU} disponible en ${lote.LOTE_ID} para la recompensa`); return; }
+      items.push({
+        sku: lote.SKU, talla: lote.TALLA, longitud: lote.LONGITUD, color: lote.COLOR, cantidad: 1, precioVenta: 0,
+        parteDeSet: 'Recompensa ScrubMe Rewards', origen: 'STOCK', loteId: lote.LOTE_ID,
+      });
+      canje = { recId: canjeRec, loteId: canjeLote };
+    }
+
     const user = auth.getUser();
     if (!user) return;
 
@@ -309,6 +347,8 @@ export default function NuevoPedidoPage() {
       estado: 'HACER PEDIDO',
       notas: notas.trim(),
       fecha,
+      ...(otraRecibe && hayRecibe(recibe) ? { recibe } : {}),
+      ...(canje ? { canje } : {}),
     };
 
     setSubmitting(true);
@@ -484,6 +524,113 @@ export default function NuevoPedidoPage() {
                   </div>
                 </div>
               )}
+
+              {/* ScrubMe Rewards */}
+              {clienteSel && rewards && (() => {
+                const c = rewards.clientes.find(x => claveNombre(x.cliente) === claveNombre(clienteSel.NOMBRE));
+                const saldo = c?.saldo || 0;
+                const porGanar = c?.porGanar || 0;
+                const alcanzables = rewards.catalogo.filter(r => r.activo && r.puntos <= saldo);
+                const rec = rewards.catalogo.find(r => r.id === canjeRec);
+                const skusRec = rec ? (rec.skus && rec.skus.length ? rec.skus : rec.sku ? [rec.sku.toUpperCase()] : []) : [];
+                const lotesRec = rec ? stockLotes.filter(l => skusRec.includes(String(l.SKU).toUpperCase()) && l.CANT_DISPONIBLE > 0) : [];
+                return (
+                  <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 13 }}>
+                      ⭐ <strong>{saldo} puntos</strong> ScrubMe Rewards
+                      {porGanar > 0 && <span style={{ color: 'var(--text-faint)' }}> · +{porGanar} por ganar</span>}
+                      {c?.siguiente && <span style={{ color: 'var(--text-faint)' }}> · siguiente: {c.siguiente.nombre} (faltan {c.siguiente.faltan})</span>}
+                    </div>
+                    {alcanzables.length > 0 && (
+                      <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
+                        <div>
+                          <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Canjear recompensa</label>
+                          <select className="input" value={canjeRec} onChange={(e) => {
+                            const v = e.target.value; setCanjeRec(v); setCanjeLote(''); if (v) setPrecioNegociado('');
+                            const r = rewards.catalogo.find(x => x.id === v);
+                            const s0 = r ? (r.skus && r.skus[0]) || r.sku : '';
+                            setCanjePedido(cp => ({ ...cp, sku: s0 }));
+                          }} style={{ marginTop: 4 }}>
+                            <option value="">No canjear</option>
+                            {alcanzables.map(r => <option key={r.id} value={r.id}>{r.nombre} ({r.puntos} pts)</option>)}
+                          </select>
+                        </div>
+                        {rec && (
+                          <div>
+                            <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>¿De dónde sale?</label>
+                            <select className="input" value={canjeModo} onChange={(e) => { setCanjeModo(e.target.value as 'stock' | 'pedido'); setCanjeLote(''); }} style={{ marginTop: 4 }}>
+                              <option value="stock">De nuestro stock</option>
+                              <option value="pedido">Pedirla a FIGS</option>
+                            </select>
+                          </div>
+                        )}
+                        {rec && canjeModo === 'stock' && (
+                          <div>
+                            <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Lote</label>
+                            {lotesRec.length === 0 ? (
+                              <div style={{ fontSize: 12, color: 'var(--rose)', marginTop: 8 }}>
+                                {skusRec.length ? `No hay ${rec.nombre} en stock. Puedes pedirla a FIGS.` : 'Esta recompensa no tiene SKU en TablaRecompensas.'}
+                              </div>
+                            ) : (
+                              <select className="input" value={canjeLote} onChange={(e) => setCanjeLote(e.target.value)} style={{ marginTop: 4 }}>
+                                <option value="">Elige el lote…</option>
+                                {lotesRec.map(l => <option key={l.LOTE_ID} value={l.LOTE_ID}>{l.LOTE_ID} · {l.TALLA} · {l.COLOR} ({l.CANT_DISPONIBLE} disp.)</option>)}
+                              </select>
+                            )}
+                          </div>
+                        )}
+                        {rec && canjeModo === 'pedido' && (
+                          <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 8 }}>
+                            {skusRec.length > 1 && (
+                              <div>
+                                <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Modelo</label>
+                                <select className="input" value={canjePedido.sku} onChange={(e) => setCanjePedido({ ...canjePedido, sku: e.target.value })} style={{ marginTop: 4 }}>
+                                  {skusRec.map(s => <option key={s} value={s}>{s}</option>)}
+                                </select>
+                              </div>
+                            )}
+                            <div>
+                              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Talla</label>
+                              <input className="input" value={canjePedido.talla} onChange={(e) => setCanjePedido({ ...canjePedido, talla: e.target.value })} style={{ marginTop: 4 }} />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Largo</label>
+                              <select className="input" value={canjePedido.longitud} onChange={(e) => setCanjePedido({ ...canjePedido, longitud: e.target.value })} style={{ marginTop: 4 }}>
+                                {['Regular', 'Petite', 'Tall'].map(x => <option key={x} value={x}>{x}</option>)}
+                              </select>
+                            </div>
+                            <div>
+                              <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Color</label>
+                              <input className="input" value={canjePedido.color} onChange={(e) => setCanjePedido({ ...canjePedido, color: e.target.value })} placeholder="Negro" style={{ marginTop: 4 }} />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {rec && (
+                      <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '8px 0 0' }}>
+                        La recompensa se agrega al pedido a $0 y se descuentan {rec.puntos} puntos. En este pedido no se puede aplicar otro descuento.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Persona que recibe (si no es la misma clienta) */}
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', minHeight: 32 }}>
+                  <input type="checkbox" checked={otraRecibe} onChange={(e) => setOtraRecibe(e.target.checked)} />
+                  Lo recibe otra persona
+                </label>
+                {otraRecibe && (
+                  <div style={{ marginTop: 10 }}>
+                    <p style={{ fontSize: 12, color: 'var(--text-faint)', margin: '0 0 10px' }}>
+                      El pedido sigue siendo de la clienta; estos datos se usan para el envío.
+                    </p>
+                    <RecibeCampos valor={recibe} onChange={setRecibe} />
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* 2. PRODUCTOS */}
@@ -639,7 +786,7 @@ export default function NuevoPedidoPage() {
                 </div>
                 <div>
                   <label style={{ fontSize: 11, color: 'var(--text-faint)', textTransform: 'uppercase' }}>Precio negociado (opcional)</label>
-                  <input type="number" step="0.01" className="input" value={precioNegociado} onChange={(e) => setPrecioNegociado(e.target.value)} placeholder={fmtMoney(totalLista)} style={{ marginTop: 4 }} />
+                  <input type="number" step="0.01" className="input" value={canjeRec ? '' : precioNegociado} onChange={(e) => setPrecioNegociado(e.target.value)} placeholder={canjeRec ? 'No aplica con canje' : fmtMoney(totalLista)} disabled={!!canjeRec} style={{ marginTop: 4 }} />
                 </div>
               </div>
               <div style={{ marginTop: 12 }}>
