@@ -67,6 +67,9 @@ export default function Navbar() {
               <button className={`nav-link ${isActive('/nuevo-pedido') ? 'active' : ''}`} onClick={() => router.push('/nuevo-pedido')}>Nuevo pedido</button>
             )}
             {isAdmin && (
+              <button className={`nav-link ${isActive('/rewards') ? 'active' : ''}`} onClick={() => router.push('/rewards')}>Rewards</button>
+            )}
+            {isAdmin && (
               <button className={`nav-link ${isActive('/reportes') ? 'active' : ''}`} onClick={() => router.push('/reportes')}>Reportes</button>
             )}
             {isAdmin && (
@@ -152,6 +155,9 @@ export default function Navbar() {
             <button className={`nav-link ${isActive('/stock') ? 'active' : ''}`} onClick={() => { router.push('/stock'); setMobileOpen(false); }}>Stock</button>
             {isAdmin && (
               <button className={`nav-link ${isActive('/nuevo-pedido') ? 'active' : ''}`} onClick={() => { router.push('/nuevo-pedido'); setMobileOpen(false); }}>Nuevo pedido</button>
+            )}
+            {isAdmin && (
+              <button className={`nav-link ${isActive('/rewards') ? 'active' : ''}`} onClick={() => { router.push('/rewards'); setMobileOpen(false); }}>ScrubMe Rewards</button>
             )}
             {isAdmin && (
               <button className={`nav-link ${isActive('/reportes') ? 'active' : ''}`} onClick={() => { router.push('/reportes'); setMobileOpen(false); }}>Reportes</button>
